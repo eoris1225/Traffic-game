@@ -72,6 +72,8 @@
           for (let u = 0; u <= 1.001; u += 0.1) { const py = yy + Math.sin(ph + u * 6) * 0.03; if (u === 0) ctx.moveTo(x + u, py); else ctx.lineTo(x + u, py); }
           ctx.stroke();
         }
+      } else if (t.base === 'bldg' || t.base === 'site') {
+        ctx.fillStyle = t.base === 'bldg' ? '#8f95a3' : '#c7a878'; ctx.fillRect(x + .06, y + .06, .88, .88);
       } else if (t.base === 'rock') {
         ctx.fillStyle = C.rockBg; ctx.fillRect(x, y, 1, 1);
         if (G) continue;

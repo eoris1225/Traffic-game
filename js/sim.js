@@ -34,19 +34,19 @@
   const FLAGS = ['wide', 'guide', 'bus', 'rev', 'round', 'signal', 'camera', 'bump', 'barricade', 'overpass'];
 
   /* ---- Stage 1 맵 -----------------------------------------------------------
-   *  . 빈 땅   ~ 강   ^ 암반   P 공원   # 일반 도로   L 잠금 도로
+   *  . 빈 터   ~ 강   B 건물   C 공사 구역   P 공원   # 일반 도로   L 잠금 도로
    *  X 잠금 도로+횡단보도   = 잠금 교량   1 S1 주거단지  2 S2 산업단지
    *  3 E1 오피스  4 E2 물류항
    * ------------------------------------------------------------------------ */
   const STAGE1 = [
-    '........~...',
-    '....2...~...',
-    '....####=###',
-    '....#PP.~..#',
+    'BBBBBBBB~BBB',
+    'BB.B2.BB~B.B',
+    'B.BB####=###',
+    'BB.B#PP.~..#',
     '1LXLLLLL=XL3',
-    '#...^^.#~...',
-    '########~...',
-    '.......4~...'
+    '#..BCC.#~..B',
+    '########~..B',
+    'BBB.BBB4~BBB'
   ];
   const TERMS = {
     '1': { id: 'S1', kind: 'home', name: '주택가' },
@@ -113,6 +113,8 @@
       if (ch === '~') t = newTile('water');
       else if (ch === '^') t = newTile('rock');
       else if (ch === 'P') t = newTile('park');
+      else if (ch === 'B') t = newTile('bldg');
+      else if (ch === 'C') t = newTile('site');
       else {
         t = newTile('grass');
         if (ch === '#') { t.road = true; t.orig = true; }

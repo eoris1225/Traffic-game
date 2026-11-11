@@ -1,11 +1,21 @@
 /* FLOW LAB — 게임 컨트롤러
- * 관찰(개선 전) → 설계(흑백 탑뷰) → 실행(컬러 대각 뷰) 루프, 편집 도구, HUD, 수치 확인 패널 */
+ * 관찰(고치기 전) → 설계(흑백 탑뷰) → 실행(컬러 대각 뷰), 편집 도구, 상태 띠, 목표(별), 터치 입력 */
 (function () {
   'use strict';
   const F = window.FlowSim, R = window.FlowRender, W = F.W, H = F.H;
   const $ = id => document.getElementById(id);
-  const TARGET = 24, ACC_LIMIT = 1, STAR2 = 21, STAR3 = 17;
-  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.stage1.v2';
+  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.stage1.v3';
+
+  /* 목표: 앞 단계를 달성해야 다음 별을 받는다. 뒤로 갈수록 어렵다. */
+  const PURPLE_BUDGET = 1200;
+  const GOALS = [
+    { text: '평균 이동시간 24초 이하', ok: (m) => m.perCapita <= 24, show: m => m.perCapita.toFixed(1) + '초' },
+    { text: '사고 없이', ok: (m) => m.accidents === 0, show: m => m.accidents + '건' },
+    { text: '평균 이동시간 20초 이하', ok: (m) => m.perCapita <= 20, show: m => m.perCapita.toFixed(1) + '초' },
+    { text: '17초 이하를 예산 $1,200 안에서', purple: true, ok: (m, c) => m.perCapita <= 17 && c <= PURPLE_BUDGET, show: (m, c) => '$' + c.toLocaleString() }
+  ];
+  const TARGET = 24;
+  function grade(m, c) { let n = 0; while (n < GOALS.length && GOALS[n].ok(m, c)) n++; return n; }
 
   /* ---------- 그림 문자(직접 그린 SVG) ---------- */
   const S = (body, vb) => `<svg viewBox="0 0 ${vb || 32} ${vb || 32}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
@@ -46,7 +56,6 @@
   document.querySelectorAll('i[data-ic]').forEach(el => { el.innerHTML = UI[el.dataset.ic] || ''; });
 
   /* ---------- 도구 (설명은 일상 언어로) ---------- */
-  const GROUPS = ['도로', '차선', '교차로 · 입체', '안전'];
   const TOOLS = [
     { id: 'road', g: 0, nm: '도로', cost: F.COST.road, desc: '빈 땅에 새 길을 냅니다.' },
     { id: 'wide', g: 0, nm: '차선 확장', cost: F.COST.wide, desc: '2칸 이상 이어 깔면 2차로가 되어 느린 차를 앞지를 수 있어요.' },
@@ -71,16 +80,16 @@
   let tiles = F.cloneTiles(base), graph, conflicts;
   const baseConf = F.conflictIndex(base).sum;
   let mode = 'before', sim = null, paused = false, speed = 2, acc = 0;
-  let tool = 'road', hover = null, tracked = null, undo = [], drag = null, orbit = null;
-  let history = [], lastM = null, lastSeries = [], predTimer = 0, predBase = null;
+  let tool = 'road', hover = null, tracked = null, undo = [];
+  let history = [], best = 0, lastM = null, lastSeries = [], predTimer = 0, predBase = null;
 
   const baseSim = new F.Sim(base, { seed: SEED }); const baseM = baseSim.run(); const baseSeries = baseSim.series;
 
   try {
     const s = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if (s && s.tiles && s.tiles.length === base.length) { tiles = s.tiles; history = s.history || []; }
+    if (s && s.tiles && s.tiles.length === base.length) { tiles = s.tiles; history = s.history || []; best = s.best || 0; }
   } catch (e) { /* 저장소를 못 써도 게임은 동작 */ }
-  function save() { try { localStorage.setItem(STORE, JSON.stringify({ tiles, history })); } catch (e) { /* ignore */ } }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify({ tiles, history, best })); } catch (e) { /* ignore */ } }
   graph = F.buildGraph(tiles); conflicts = F.conflictIndex(tiles);
 
   /* ---------- 화면 ---------- */
@@ -90,10 +99,11 @@
   function resize() {
     vw = wrap.clientWidth; vh = wrap.clientHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
     cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr); cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
-    TS = Math.min(vw / W, (vh - 170) / H); ox = (vw - TS * W) / 2; oy = 62 + (vh - 170 - TS * H) / 2;
+    TS = Math.min(vw / W, (vh - 150) / H); ox = (vw - TS * W) / 2; oy = 62 + (vh - 150 - TS * H) / 2;
     if (V3) V3.resize(vw, vh, dpr);
   }
   window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(wrap);
   function rebuild3d() { if (V3) V3.build(sim ? sim.tiles : tiles, sim || graph, { edit: mode === 'edit' }); }
 
   /* ---------- 편집 규칙 ---------- */
@@ -107,13 +117,13 @@
   function check(i, id) {
     const t = tiles[i];
     switch (id) {
-      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요 — 다리나 지하차도를 써 보세요'; return null;
+      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
       case 'wide': if (!t.road) return '도로 위에만 설치할 수 있어요'; if (t.locked) return '잠긴 도로는 넓힐 수 없어요'; return null;
       case 'rev': case 'oneway': case 'guide': case 'bus': case 'bump': case 'barricade': case 'camera': case 'round': case 'signal':
         return t.road ? null : '도로 위에만 설치할 수 있어요';
       case 'overpass': return t.crosswalk && t.road ? null : '횡단보도 위에만 놓을 수 있어요';
       case 'bridge': if (t.term) return '건물 위에는 놓을 수 없어요'; if (!(t.base === 'water' || t.road)) return '다리는 강 위나 도로 위에만 놓을 수 있어요'; return null;
-      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '강 밑으로는 뚫을 수 없어요'; return null;
+      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '강 밑으로는 뚫을 수 없어요'; if (t.base === 'bldg') return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; return null;
       case 'demolish': {
         const o = base[i];
         if (F.tileCost(t, o) > 0 && !(o.road && !t.road)) return null;
@@ -167,56 +177,55 @@
   function pushUndo() { undo.push(JSON.stringify(tiles)); if (undo.length > 60) undo.shift(); }
 
   /* ---------- 모드 ---------- */
+  function starRow(n, cls) { return GOALS.map((g, k) => UI.star.replace('<svg', `<svg class="${(k < n ? 'on' : '') + (g.purple ? ' p' : '') + (cls || '')}"`)).join(''); }
+  function goalList(el, m, c) {
+    let chain = true;
+    el.innerHTML = GOALS.map(g => {
+      const ok = m ? g.ok(m, c) : false, on = m && chain && ok; if (!ok) chain = false;
+      return `<li class="${(on ? 'on' : m ? 'miss' : '') + (g.purple ? ' p' : '')}">${UI.star}<span>${g.text}</span>${m ? `<em>${g.show(m, c)}</em>` : ''}</li>`;
+    }).join('');
+  }
+  function setCaption(html, btn) { $('captionTxt').innerHTML = html || ''; $('captionBtn').style.display = btn ? '' : 'none'; $('caption').style.display = html ? '' : 'none'; }
   function setMode(m) {
     mode = m;
     wrap.classList.toggle('is-edit', m === 'edit'); wrap.classList.toggle('is-play', m !== 'edit');
-    $('result').classList.add('hidden');
+    $('result').classList.add('hidden'); hideInfo();
     const pb = $('btnPlay'); pb.innerHTML = `<i data-ic>${m === 'edit' ? UI.play : UI.stop}</i>`; pb.classList.toggle('stop', m !== 'edit');
-    $('btnSkip').style.visibility = m === 'edit' ? 'hidden' : 'visible';
-    $('btnSpeed').style.visibility = m === 'edit' ? 'hidden' : 'visible';
-    $('btnUndo').style.visibility = $('btnReset').style.visibility = m === 'edit' ? 'visible' : 'hidden';
-    $('forecast').classList.toggle('hidden', m !== 'edit');
-    const bn = $('banner');
-    if (m === 'before') { bn.classList.remove('hidden'); $('bannerTxt').textContent = '다들 가운데 지름길로만 몰려 출근길이 점점 막힙니다. 지켜본 뒤 도로를 고쳐 보세요.'; }
-    else bn.classList.add('hidden');
+    for (const id of ['btnSkip', 'btnSpeed']) $(id).style.visibility = m === 'edit' ? 'hidden' : 'visible';
+    for (const id of ['btnUndo', 'btnReset']) $(id).style.visibility = m === 'edit' ? 'visible' : 'hidden';
+    if (m === 'before') setCaption('도심 한복판이 마비됐습니다. 어디가 문제인지 찾아보세요.', true);
+    else if (m === 'run') setCaption('');
     rebuild3d();
     if (V3) V3.setView(m === 'edit' ? 'top' : 'iso');
     updateBudget();
   }
   function startBefore() { sim = new F.Sim(base, { seed: SEED }); tracked = null; paused = false; acc = 0; setMode('before'); }
-  function startEdit() { sim = null; tracked = null; setMode('edit'); schedulePredict(); }
+  function startEdit() { sim = null; tracked = null; setMode('edit'); setCaption('도구를 골라 칸을 누르세요'); schedulePredict(); }
   function startRun() { sim = new F.Sim(tiles, { seed: SEED }); tracked = null; paused = false; acc = 0; setMode('run'); }
 
-  function stars(m) {
-    if (!(m.perCapita <= TARGET && m.accidents <= ACC_LIMIT)) return 0;
-    if (m.perCapita <= STAR3 && m.accidents === 0) return 3;
-    if (m.perCapita <= STAR2 && m.accidents === 0) return 2;
-    return 1;
-  }
   function finish() {
-    const m = sim.metrics(), isBefore = mode === 'before', c = isBefore ? 0 : cost(), st = isBefore ? 0 : stars(m);
+    const m = sim.metrics(), isBefore = mode === 'before', c = isBefore ? 0 : cost(), st = isBefore ? 0 : grade(m, c);
     lastM = m; lastSeries = sim.series.slice();
     if (!isBefore) {
       const sig = JSON.stringify(tiles);
       history = history.filter(h => h.sig !== sig);
       history.push({ sig, cost: c, pc: m.perCapita, acc: m.accidents, stars: st, clear: st > 0, arr: m.arrived });
       if (history.length > 12) history.shift();
-      save();
+      if (st > best) best = st;
+      save(); $('btnGoals').innerHTML = starRow(best);
     }
     const sg = $('resSign');
     if (isBefore) { sg.className = 'fail'; sg.textContent = '이대로는 안 되겠어요'; }
-    else { sg.className = st ? 'clear' : 'fail'; sg.textContent = st ? '통행 원활!' : (m.accidents > ACC_LIMIT ? '사고가 너무 많아요' : '아직 너무 느려요'); }
-    $('resStars').innerHTML = isBefore ? '' : [1, 2, 3].map(k => UI.star.replace('<svg', `<svg class="${k <= st ? 'on' : ''}"`)).join('');
-    $('resStars').style.display = isBefore ? 'none' : '';
+    else { sg.className = st ? 'clear' : 'fail'; sg.textContent = ['아직 너무 느려요', '길이 뚫렸어요', '안전하게 뚫렸어요', '시원하게 뚫렸어요', '완벽한 설계'][st]; }
+    $('resStars').innerHTML = starRow(st);
+    goalList($('resGoals'), m, c);
     $('resBody').innerHTML = isBefore
-      ? `<dt>평균 이동시간</dt><dd>${m.perCapita.toFixed(1)}초</dd><dt>사고</dt><dd>${m.accidents}건</dd><div class="note">목표는 ${TARGET}초 이하 · 사고 ${ACC_LIMIT}건 이하</div>`
-      : `<dt>평균 이동시간</dt><dd><s>${baseM.perCapita.toFixed(1)}초</s>${m.perCapita.toFixed(1)}초</dd><dt>사고</dt><dd><s>${baseM.accidents}건</s>${m.accidents}건</dd><dt>도착</dt><dd>${m.arrived} / ${m.total}대</dd><dt>사용 예산</dt><dd>$${c.toLocaleString()}</dd>` +
-        (st === 1 ? `<div class="note">별 2개 ${STAR2}초 이하·무사고 · 별 3개 ${STAR3}초 이하·무사고</div>` : st === 2 ? `<div class="note">별 3개는 ${STAR3}초 이하·무사고</div>` : '');
-    $('result').classList.remove('hidden');
-    $('banner').classList.add('hidden');
+      ? `평균 이동시간 <b>${m.perCapita.toFixed(1)}초</b> · 사고 <b>${m.accidents}건</b> · 도착 <b>${m.arrived}/${m.total}</b>`
+      : `고치기 전 ${baseM.perCapita.toFixed(1)}초 → <b>${m.perCapita.toFixed(1)}초</b> · 도착 <b>${m.arrived}/${m.total}</b> · 예산 <b>$${c.toLocaleString()}</b>`;
+    $('result').classList.remove('hidden'); setCaption('');
   }
 
-  /* ---------- HUD ---------- */
+  /* ---------- 상태 띠 ---------- */
   function updateBudget() {
     const c = mode === 'before' ? 0 : cost();
     $('budBig').textContent = '$' + c.toLocaleString();
@@ -228,11 +237,10 @@
     const m = sim.metrics();
     let s = 0, n = 0; for (const c of sim.cars) if (!c.crashed) { s += Math.min(1, c.v / c.v0); n++; }
     const flow = n ? s / n : 1, mi = flow > 0.6 ? 0 : flow > 0.38 ? 1 : 2;
-    $('chipMood').className = 'plate mood m' + mi; $('moodTxt').textContent = ['원활', '서행', '정체'][mi];
+    $('lamps').className = 'lamps m' + mi; $('moodTxt').textContent = ['원활', '서행', '정체'][mi];
     $('hudTime').textContent = m.perCapita.toFixed(1);
-    $('chipTime').className = 'plate stat ' + (m.perCapita <= TARGET ? 'good' : 'bad');
-    $('goalFill').style.width = Math.min(100, m.perCapita / TARGET * 60) + '%';
-    $('hudAcc').textContent = m.accidents; $('chipAcc').className = 'plate stat ' + (m.accidents <= ACC_LIMIT ? 'good' : 'bad');
+    $('figTime').className = 'fig ' + (m.perCapita <= TARGET ? 'good' : 'bad');
+    $('hudAcc').textContent = m.accidents; $('figAcc').className = 'fig ' + (m.accidents === 0 ? 'good' : 'bad');
     $('hudArr').textContent = m.arrived; $('hudTot').textContent = '/' + m.total;
     $('dayFill').style.width = (sim.t / F.SIM_END * 100) + '%';
   }
@@ -241,11 +249,11 @@
     clearTimeout(predTimer);
     if (mode !== 'edit') return;
     predTimer = setTimeout(() => {
+      if (mode !== 'edit') return;
       if (!predBase) predBase = new F.Sim(base, { seed: PRED_SEED }).run();
-      const el = $('forecast');
-      if (cost() === 0) { el.innerHTML = '도구를 골라 도로를 고친 뒤 실행해 보세요'; return; }
+      if (cost() === 0) { setCaption('도구를 골라 칸을 누르세요'); return; }
       const m = new F.Sim(tiles, { seed: PRED_SEED }).run(), d = m.perCapita - predBase.perCapita;
-      el.innerHTML = `<span class="cap">이대로 실행하면</span>약 <b>${m.perCapita.toFixed(0)}초</b> <span class="${d < 0 ? 'good' : 'bad'}">${d < 0 ? '' : '+'}${d.toFixed(0)}초</span> · 사고 <b class="${m.accidents <= ACC_LIMIT ? 'good' : 'bad'}">${m.accidents}</b>건`;
+      setCaption(`이대로 실행하면 약 <b>${m.perCapita.toFixed(0)}초</b> <span class="${d < 0 ? 'good' : 'bad'}">(${d < 0 ? '' : '+'}${d.toFixed(0)}초)</span> · 사고 <b class="${m.accidents === 0 ? 'good' : 'bad'}">${m.accidents}건</b>`);
     }, 250);
   }
 
@@ -266,7 +274,7 @@
     const pts = [{ cost: 0, pc: baseM.perCapita, base: true }].concat(history.map((h, k) => ({ cost: h.cost, pc: h.pc, clear: h.clear, cur: k === history.length - 1 })));
     R.pareto($('pareto'), { pts, target: TARGET });
     $('hist').innerHTML = history.length ? '<table><tr><th>설계</th><th>예산</th><th>이동시간</th><th>변화</th><th>사고</th><th>결과</th></tr>' +
-      history.map((h, k) => `<tr><td>#${k + 1}</td><td>$${h.cost.toLocaleString()}</td><td>${h.pc.toFixed(1)}초</td><td>${(h.pc - baseM.perCapita).toFixed(1)}</td><td>${h.acc}</td><td class="${h.clear ? 'ok' : 'ng'}">${h.clear ? '★'.repeat(h.stars) : '실패'}</td></tr>`).reverse().join('') + '</table>'
+      history.map((h, k) => `<tr><td>#${k + 1}</td><td>$${h.cost.toLocaleString()}</td><td>${h.pc.toFixed(1)}초</td><td>${(h.pc - baseM.perCapita).toFixed(1)}</td><td>${h.acc}</td><td class="${h.clear ? 'ok' : 'ng'}">${h.clear ? '★'.repeat(Math.min(3, h.stars)) + (h.stars > 3 ? '<span style="color:#8b5cf6">★</span>' : '') : '실패'}</td></tr>`).reverse().join('') + '</table>'
       : '<span style="color:#6f7482">실행한 결과가 여기에 쌓입니다. 서로 다른 설계를 비교해 보세요.</span>';
     const mx = baseSim.mix, tot = mx.normal + mx.speeder + mx.novice, items = [['normal', '일반'], ['speeder', '과속'], ['novice', '초보']];
     $('mixBar').innerHTML = items.map(([k]) => `<div style="width:${mx[k] / tot * 100}%;background:${R.CAR[k]}"></div>`).join('');
@@ -275,7 +283,7 @@
     $('statBudget').innerHTML = `<b>$${cost().toLocaleString()}</b> / $${F.BUDGET.toLocaleString()}`;
   }
 
-  /* ---------- 입력 ---------- */
+  /* ---------- 입력 (마우스·터치 공통: Pointer Events) ---------- */
   function tileAt(e) {
     const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
     let fx, fy;
@@ -286,78 +294,110 @@
     return { x, y, i: y * W + x, px, py, fx, fy };
   }
   let toastT = 0;
-  function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1600); }
-  function showTip(p) {
-    const tip = $('tip');
-    if (mode !== 'edit' || !p || p.out || drag) { tip.style.display = 'none'; return; }
-    const T = TOOL[tool], err = check(p.i, tool), t = tiles[p.i], here = [];
-    if (t.term) here.push(t.term.name);
-    if (t.locked) here.push('잠긴 도로'); if (t.crosswalk) here.push('횡단보도');
-    TOOLS.forEach(k => { if (k.id !== 'road' && k.id !== 'demolish' && (k.id === 'oneway' ? t.oneway >= 0 : t[k.id])) here.push(k.nm); });
-    tip.innerHTML = `<span class="cost">$${T.cost}</span><b>${T.nm}</b><br>${err ? `<span class="bad">${err}</span>` : T.desc}` + (here.length ? `<br><span class="here">${here.join(' · ')}</span>` : '');
-    tip.style.display = 'block';
-    tip.style.left = Math.min(vw - 262, p.px + 16) + 'px'; tip.style.top = Math.min(vh - 190, p.py + 16) + 'px';
-  }
+  function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1700); }
   function setHover(p) {
     hover = (p && !p.out && mode === 'edit') ? { x: p.x, y: p.y, ok: !check(p.i, tool) } : null;
     if (V3) V3.setHover(hover);
   }
-  cv.addEventListener('mousemove', e => {
-    if (orbit) {
-      if (Math.abs(e.clientX - orbit.x0) + Math.abs(e.clientY - orbit.y0) > 4) orbit.moved = true;
-      if (orbit.moved && V3) V3.orbit(e.clientX - orbit.x, e.clientY - orbit.y);
-      orbit.x = e.clientX; orbit.y = e.clientY; return;
+  /* 설치: 첫 칸은 토글, 끌면 같은 값으로 이어 칠한다 */
+  let stroke = null;
+  function place(p) {
+    if (!stroke) {
+      pushUndo();
+      const r = apply(p.i, tool);
+      if (r.err) { undo.pop(); toast(r.err); stroke = { dead: true, last: p.i }; return; }
+      stroke = { last: p.i, val: r.val }; afterEdit(); return;
     }
-    const p = tileAt(e); setHover(p); showTip(p);
-    if (drag && mode === 'edit' && p && !p.out && p.i !== drag.last) {
-      drag.last = p.i;
-      const cur = tool === 'oneway' ? tiles[p.i].oneway : tiles[p.i][tool], plain = tool === 'road' || tool === 'demolish';
-      if (plain || cur !== drag.val) { const r = apply(p.i, tool, plain ? undefined : drag.val); if (r.err) { if (/예산/.test(r.err)) toast(r.err); } else afterEdit(); }
+    if (stroke.dead || p.i === stroke.last) return;
+    stroke.last = p.i;
+    const cur = tool === 'oneway' ? tiles[p.i].oneway : tiles[p.i][tool], plain = tool === 'road' || tool === 'demolish';
+    if (plain || cur !== stroke.val) { const r = apply(p.i, tool, plain ? undefined : stroke.val); if (r.err) { if (/예산/.test(r.err)) toast(r.err); } else afterEdit(); }
+  }
+  function pickCar(p) {
+    let bestC = null, bd = 1;
+    for (const c of sim.cars) {
+      let d;
+      if (V3) { const q = V3.project(c.x, c.y, V3.carH(sim, c) + .08); d = Math.hypot(q[0] - p.px, q[1] - p.py) / 26; }
+      else d = p.out ? 9 : Math.hypot(c.x - p.fx, c.y - p.fy) / 0.3;
+      if (d < bd) { bd = d; bestC = c; }
     }
-  });
-  cv.addEventListener('mouseleave', () => { setHover(null); showTip(null); });
-  cv.addEventListener('mousedown', e => {
+    tracked = bestC;
+  }
+  const pts = new Map();
+  let gest = null;       // { kind:'edit'|'orbit'|'pinch', ... }
+  const pinchDist = () => { const a = [...pts.values()]; return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); };
+  cv.addEventListener('pointerdown', e => {
+    hideInfo();
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { gest = { kind: 'pinch', d: pinchDist() }; stroke = null; return; }      // 두 손가락: 확대·축소
     const p = tileAt(e);
-    if (mode !== 'edit') { orbit = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false, p }; return; }
-    if (!p || p.out) return;
-    pushUndo();
-    const r = apply(p.i, tool);
-    if (r.err) { undo.pop(); toast(r.err); return; }
-    drag = { last: p.i, val: r.val }; showTip(null);
-    afterEdit();
+    if (mode === 'edit') {
+      gest = { kind: 'edit', touch: e.pointerType !== 'mouse', first: p };
+      if (!gest.touch && p && !p.out) place(p);                 // 마우스는 누르는 즉시, 터치는 손을 떼거나 끌 때 설치
+      setHover(p);
+    } else gest = { kind: 'orbit', x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false, p };
   });
-  window.addEventListener('mouseup', () => {
-    drag = null;
-    if (orbit && !orbit.moved && sim && orbit.p) {            // 클릭: 차량 선택
-      let best = null, bd = 1; const p = orbit.p;
-      for (const c of sim.cars) {
-        let d;
-        if (V3) { const q = V3.project(c.x, c.y, V3.carH(sim, c) + .08); d = Math.hypot(q[0] - p.px, q[1] - p.py) / 24; }
-        else d = p.out ? 9 : Math.hypot(c.x - p.fx, c.y - p.fy) / 0.3;
-        if (d < bd) { bd = d; best = c; }
-      }
-      tracked = best;
+  cv.addEventListener('pointermove', e => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (gest && gest.kind === 'pinch') { if (pts.size === 2 && V3) { const d = pinchDist(); if (d > 0) { V3.zoom(gest.d / d); gest.d = d; } } return; }
+    if (gest && gest.kind === 'orbit') {
+      if (Math.abs(e.clientX - gest.x0) + Math.abs(e.clientY - gest.y0) > 6) gest.moved = true;
+      if (gest.moved && V3) V3.orbit(e.clientX - gest.x, e.clientY - gest.y);
+      gest.x = e.clientX; gest.y = e.clientY; return;
     }
-    orbit = null;
+    const p = tileAt(e);
+    if (e.pointerType === 'mouse' || gest) setHover(p);
+    if (gest && gest.kind === 'edit' && p && !p.out) {
+      if (gest.touch && !stroke) { if (!gest.first || gest.first.out || p.i === gest.first.i) return; place(gest.first); }
+      place(p);
+    }
   });
+  function endPointer(e) {
+    pts.delete(e.pointerId);
+    if (!gest) return;
+    if (gest.kind === 'pinch') { if (pts.size === 0) gest = null; return; }
+    if (gest.kind === 'edit' && gest.touch && !stroke && e.type === 'pointerup' && gest.first && !gest.first.out) place(gest.first);
+    if (gest.kind === 'edit' && gest.touch) setHover(null);
+    if (gest.kind === 'orbit' && !gest.moved && sim && gest.p && e.type === 'pointerup') pickCar(gest.p);
+    gest = null; stroke = null;
+  }
+  cv.addEventListener('pointerup', endPointer);
+  cv.addEventListener('pointercancel', endPointer);
+  cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !gest) setHover(null); });
   cv.addEventListener('wheel', e => { if (V3) { V3.zoom(e.deltaY > 0 ? 1.08 : 0.93); e.preventDefault(); } }, { passive: false });
+  cv.addEventListener('contextmenu', e => e.preventDefault());
   function doUndo() { if (mode === 'edit' && undo.length) { tiles = JSON.parse(undo.pop()); afterEdit(); } }
   function togglePlay() { if (mode === 'edit') startRun(); else startEdit(); }
   window.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { doUndo(); e.preventDefault(); }
     else if (e.code === 'Space') { togglePlay(); e.preventDefault(); }
-    else if (e.key === 'Escape') { $('stats').classList.add('hidden'); $('help').classList.add('hidden'); }
+    else if (e.key === 'Escape') { $('stats').classList.add('hidden'); $('help').classList.add('hidden'); hideInfo(); }
   });
 
-  /* ---------- 툴바 · 버튼 ---------- */
-  function buildToolbar() {
-    $('toolbar').innerHTML = GROUPS.map((g, gi) => `<div class="grp"><h4>${g}</h4><div class="row">` +
-      TOOLS.filter(t => t.g === gi).map(t => `<button class="tool${t.id === tool ? ' sel' : ''}" data-tool="${t.id}"><span class="pr">$${t.cost}</span><span class="ic">${IC[t.id]}</span><span class="nm">${t.nm}</span></button>`).join('') + '</div></div>').join('');
-    $('toolbar').querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => {
-      tool = b.dataset.tool;
-      $('toolbar').querySelectorAll('.tool').forEach(x => x.classList.toggle('sel', x === b));
-    }));
+  /* ---------- 도구 트레이: 아이콘만, 누르면 설명이 뜬다 ---------- */
+  function hideInfo() { $('toolInfo').classList.add('hidden'); }
+  function showInfo(btn) {
+    const T = TOOL[btn.dataset.tool], el = $('toolInfo');
+    el.innerHTML = `<em>$${T.cost}</em><b>${T.nm}</b><p>${T.desc}</p>`;
+    el.classList.remove('hidden');
+    const wr = wrap.getBoundingClientRect(), br = btn.getBoundingClientRect(), tr = $('tray').getBoundingClientRect();
+    const cx = br.left + br.width / 2 - wr.left, w = el.offsetWidth, left = Math.max(8, Math.min(vw - w - 8, cx - w / 2));
+    el.style.left = left + 'px'; el.style.bottom = (wr.bottom - tr.top + 12) + 'px'; el.style.setProperty('--ax', (cx - left) + 'px');
   }
+  function buildTray() {
+    let html = '', g = 0;
+    for (const t of TOOLS) { if (t.g !== g) { html += '<span class="gap"></span>'; g = t.g; } html += `<button class="tool${t.id === tool ? ' sel' : ''}" data-tool="${t.id}" aria-label="${t.nm}">${IC[t.id]}</button>`; }
+    $('tray').innerHTML = html;
+    $('tray').querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => {
+      tool = b.dataset.tool;
+      $('tray').querySelectorAll('.tool').forEach(x => x.classList.toggle('sel', x === b));
+      showInfo(b);
+    }));
+    $('tray').addEventListener('scroll', hideInfo);
+  }
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('.tool')) hideInfo(); }, true);
+
   /* 예시 설계 — 정답 판정용이 아니라 같은 엔진으로 돌려 볼 수 있는 비교용 */
   const at = (t, x, y) => t[y * W + x];
   const PRESETS = [
@@ -365,18 +405,19 @@
     t => { at(t, 5, 4).bus = true; at(t, 6, 4).bus = true; at(t, 2, 4).overpass = true; at(t, 9, 4).overpass = true; },
     t => { at(t, 4, 4).round = true; at(t, 7, 4).round = true; at(t, 2, 4).overpass = true; at(t, 9, 4).overpass = true; }
   ];
+  const openHelp = () => { goalList($('helpGoals'), null, 0); $('help').classList.remove('hidden'); };
   $('btnPlay').onclick = togglePlay;
   $('btnBefore').onclick = startBefore;
-  $('bannerBtn').onclick = startEdit;
+  $('captionBtn').onclick = startEdit;
   $('btnUndo').onclick = doUndo;
   $('btnReset').onclick = () => { if (mode !== 'edit') return; pushUndo(); tiles = F.cloneTiles(base); afterEdit(); };
   $('btnSpeed').onclick = () => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; $('btnSpeed').textContent = '×' + speed; };
   $('btnSkip').onclick = () => { if (sim && !sim.done) { sim.run(); finish(); } };
   $('btnStats').onclick = $('resStats').onclick = openStats;
   $('statsClose').onclick = () => $('stats').classList.add('hidden');
-  $('btnHelp').onclick = () => $('help').classList.remove('hidden');
+  $('btnHelp').onclick = $('btnGoals').onclick = openHelp;
   $('helpClose').onclick = () => $('help').classList.add('hidden');
-  document.querySelectorAll('.modal').forEach(m => m.addEventListener('mousedown', e => { if (e.target === m) m.classList.add('hidden'); }));
+  document.querySelectorAll('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target === m) m.classList.add('hidden'); }));
   $('resEdit').onclick = startEdit;
   $('resClose').onclick = () => $('result').classList.add('hidden');
   $('btnClearHist').onclick = () => { history = []; save(); openStats(); };
@@ -406,12 +447,12 @@
     requestAnimationFrame(frame);
   }
 
-  $('hudGoal').textContent = TARGET;
-  buildToolbar(); resize(); startBefore();
-  if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('900 20px "Wanted Sans"'), document.fonts.load('500 13px "Wanted Sans"')]).then(() => { rebuild3d(); resize(); }).catch(() => {});
+  $('hudGoal').textContent = TARGET; $('btnGoals').innerHTML = starRow(best);
+  buildTray(); resize(); startBefore();
   if (V3) V3.setView('iso', true);
+  if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('900 20px "Wanted Sans"'), document.fonts.load('500 13px "Wanted Sans"')]).then(() => { rebuild3d(); resize(); }).catch(() => {});
   requestAnimationFrame(frame);
 
-  window.FlowLab = { V3, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, baseM,
+  window.FlowLab = { V3, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, baseM, grade,
     apply: (x, y, id) => { const r = apply(y * W + x, id); afterEdit(); return r; } };
 })();

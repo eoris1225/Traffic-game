@@ -20,7 +20,7 @@
     renderer.setClearColor(0x000000, 0);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0xcfe3e4, 24, 48);
+    scene.fog = new THREE.Fog(0xcfe3e4, 30, 74);
     const camera = new THREE.PerspectiveCamera(30, 1.5, 0.1, 200);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 0.66));
     const sun = new THREE.DirectionalLight(0xfff1d6, 0.9);
@@ -38,24 +38,27 @@
       decor.push({ m, c, g: gray !== undefined ? new THREE.Color(gray) : new THREE.Color(l * .5 + .2, l * .5 + .2, l * .5 + .225) }); return m;
     };
     const mats = {
-      soil: D(0xb08c62, { side: THREE.DoubleSide }), water: D(0x6fb4cf, { transparent: true, opacity: 0.95 }, 0x6f737d),
+      soil: D(0xb9b3a4, { side: THREE.DoubleSide }), water: D(0x6fb4cf, { transparent: true, opacity: 0.95 }, 0x565a66),
       rock: D(0x8f958f), rock2: D(0x767c78), snow: D(0xf4f7fb), trunk: D(0x8a5a3a), leaf: D(0x4c8f56), leaf2: D(0x3d7c52), leaf3: D(0x6aa35b),
-      grassA: D(0x80b56b), grassB: D(0x85b96f), soil2: D(0x7a5b40, { side: THREE.DoubleSide }), rockBg: D(0xd8cfae), parkBg: D(0x7fae5c), sheep: D(0xf3f1ea),
+      grassA: D(0x80b56b), grassB: D(0x85b96f), soil2: D(0x9a958a, { side: THREE.DoubleSide }), rockBg: D(0xd8cfae), parkBg: D(0x7fae5c), sheep: D(0xf3f1ea),
+      pave: D(0xcbc6b6), siteBg: D(0xc7a878), ob1: D(0xd9d2c2), ob2: D(0xc4b8a6), ob3: D(0xa9b4c2), ob4: D(0xd6b7a0), ob5: D(0xb9c4b0),
+      oroof: D(0x8a8f9a), owin: D(0x6f7f95), mount: D(0x8fa3b0), mount2: D(0xa3b4bf), asph: M(0x555966), line: M(0xe9e2cc),
       dark: M(0x2b2f3a), glass: M(0x1d2433), white: M(0xf3f1ea), pole: M(0x5b6170), beam: M(0xf2b233), beam2: M(0xd9544a),
       deck: M(0x4b4f5e), orange: M(0xff8a2a), yellow: M(0xffd23f), concrete: M(0xc9c4b6), wall: M(0xe8dfcf), roofR: M(0xd9604a), roofB: M(0x4a7fd9),
       metal: M(0x9aa3b5), red: M(0xe0453f)
     };
+    const BW = [M(0xeadfcb), M(0xd98f6c), M(0x8fa8c9), M(0xa9cdb8), M(0xe7c36a), M(0xc9b6d6)], BR = [M(0x6a6f7c), M(0xb8573f), M(0x4f6f8f)];
     const G = {
       box: new THREE.BoxGeometry(1, 1, 1), cone5: new THREE.ConeGeometry(1, 1, 5), cone6: new THREE.ConeGeometry(1, 1, 6), cone4: new THREE.ConeGeometry(1, 1, 4),
       cyl6: new THREE.CylinderGeometry(1, 1, 1, 6), cyl10: new THREE.CylinderGeometry(1, 1, 1, 10), ico: new THREE.IcosahedronGeometry(1, 0), plane: new THREE.PlaneGeometry(1, 1)
     };
     G.plane.rotateX(-Math.PI / 2);
 
-    let world = null, tex = null, water = null, waterBase = null, hoverMesh = null;
+    let world = null, env = null, tex = null, hoverMesh = null, amb = [], lastAmb = 0;
     let heat = [], signals = [], peds = [], camSweeps = [];
     const cars = new Map(), fx = new Map();
     let tilesRef = null, graphRef = null;
-    const VIEWS = { top: { yaw: 0, pitch: 1.5, tz: H / 2 + .45 }, iso: { yaw: -0.24, pitch: 0.9, tz: H / 2 + 1.1 } };
+    const VIEWS = { top: { yaw: 0, pitch: 1.5, tz: H / 2 + .45 }, iso: { yaw: -0.24, pitch: 0.8, tz: H / 2 + .9 } };
     const cam = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35, touched: false, mode: 'iso' };
     const tgt = { yaw: -0.24, pitch: 0.9, dist: 18.5, tz: H / 2 + 0.35 };
     let vw = 1, vh = 1, amt = 1, tAmt = 1, lastNow = 0, hover = null;
@@ -79,6 +82,101 @@
       const a = nodeH(c.path[c.i]), b = nodeH(c.path[c.i + 1]);
       if (a === b) return a;
       const u = c.s * c.s * (3 - 2 * c.s); return a + (b - a) * u;
+    }
+
+    /* 격자 안의 건물 칸: 길을 낼 수 없는 도심 블록 */
+    function cityBlock(x, z, i) {
+      const hs = 0.34 + (1 - z / (H - 1)) * 0.7, v = Math.floor(hash(i * 1.7) * 3);
+      const one = (cx, cz, w, d, h, k) => {
+        const wall = BW[Math.floor(hash(i * 3.1 + k) * BW.length)], roof = BR[Math.floor(hash(i * 5.3 + k) * BR.length)];
+        mesh(G.box, wall, cx, h / 2, cz, w, h, d);
+        for (let y = .13; y < h - .05; y += .16) mesh(G.box, mats.glass, cx, y, cz, w + .012, .055, d + .012, world, false);
+        mesh(G.box, roof, cx, h + .015, cz, w * .94, .03, d * .94);
+        const r = hash(i * 7.7 + k);
+        if (r < .4) mesh(G.box, mats.metal, cx + w * .18, h + .06, cz - d * .15, .1, .06, .08);
+        else if (r < .6) mesh(G.cyl6, mats.wall, cx - w * .15, h + .08, cz + d * .1, .055, .1, .055);
+      };
+      const h1 = hs * (.6 + .6 * hash(i + 2)), h2 = hs * (.45 + .6 * hash(i + 5));
+      if (v === 0) one(x + .5, z + .5, .72, .72, h1, 0);
+      else if (v === 1) { one(x + .28, z + .5, .38, .7, h1, 0); one(x + .73, z + .5, .38, .7, h2, 1); }
+      else { one(x + .34, z + .36, .5, .5, h1, 0); one(x + .56, z + .78, .68, .26, Math.min(h2, .3), 1); tree(x + .84, z + .3, .6); }
+    }
+    /* 공사 구역: 울타리·크레인·굴착기 */
+    function construction(x, z, i, first) {
+      for (const s of [-1, 1]) {
+        for (let k = 0; k < 4; k++) {
+          mesh(G.box, k % 2 ? mats.white : mats.orange, x + .16 + k * .23, .07, z + .5 + s * .44, .22, .12, .025);
+          mesh(G.box, k % 2 ? mats.orange : mats.white, x + .5 + s * .44, .07, z + .16 + k * .23, .025, .12, .22);
+        }
+      }
+      if (first) {
+        mesh(G.box, mats.yellow, x + .3, .55, z + .3, .05, 1.1, .05); mesh(G.box, mats.yellow, x + .62, 1.08, z + .3, .9, .04, .04);
+        mesh(G.box, mats.dark, x + .2, 1.02, z + .3, .12, .1, .1); mesh(G.box, mats.dark, x + .95, .9, z + .3, .012, .32, .012, world, false); mesh(G.box, mats.concrete, x + .95, .72, z + .3, .1, .06, .1);
+        label('공사중', '#c9661a', x + 1, 1.45, z + .5);
+      } else {
+        mesh(G.box, mats.yellow, x + .45, .1, z + .55, .26, .12, .18); mesh(G.box, mats.glass, x + .4, .2, z + .55, .12, .1, .15);
+        const arm = mesh(G.box, mats.yellow, x + .64, .24, z + .55, .3, .04, .04); arm.rotation.z = .6; mesh(G.box, mats.dark, x + .45, .03, z + .55, .3, .05, .22);
+      }
+      for (let k = 0; k < 3; k++) { const p = mesh(G.cyl6, mats.concrete, x + .68, .05 + (k === 2 ? .07 : 0), z + .22 + (k === 2 ? .04 : k * .08), .04, .34, .04); p.rotation.z = Math.PI / 2; }
+      mesh(G.cone6, mats.orange, x + .25, .06, z + .78, .04, .12, .04);
+    }
+    /* 격자 바깥의 도시: 한 번만 만든다 (주변 블록·잘 흐르는 도로·강·산) */
+    function buildEnv(tiles) {
+      env = new THREE.Group(); scene.add(env);
+      const E = 48, quad = (arr, x0, z0, x1, z1, y) => arr.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
+      const geo = arr => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); return g; };
+      let wx0 = Infinity, wx1 = -Infinity;
+      for (let x = 0; x < W; x++) if (tiles[x].base === 'water') { wx0 = Math.min(wx0, x); wx1 = Math.max(wx1, x + 1); }
+      const ground = [];
+      if (wx0 === Infinity) quad(ground, -E, -E, W + E, H + E, -.012);
+      else {
+        quad(ground, -E, -E, wx0, H + E, -.012); quad(ground, wx1, -E, W + E, H + E, -.012);
+        const wm = new THREE.Mesh(geo((a => { quad(a, wx0, -E, wx1, H + E, -.26); return a; })([])), mats.water); wm.receiveShadow = true; env.add(wm);
+        const bank = [];
+        for (const bx of [wx0, wx1]) bank.push(bx, 0, -E, bx, 0, H + E, bx, -.3, H + E, bx, 0, -E, bx, -.3, H + E, bx, -.3, -E);
+        env.add(new THREE.Mesh(geo(bank), mats.soil));
+      }
+      const gm = new THREE.Mesh(geo(ground), mats.pave); gm.receiveShadow = true; env.add(gm);
+      // 주변 도로
+      const HS = [-1.5, H + 1.5, -5.5, H + 5.5], VS = [-1.5, W + 1.5, -5.5, W + 5.5], asph = [], lines = [];
+      for (const z of HS) { quad(asph, -E, z - .4, W + E, z + .4, .004); for (let x = -E; x < W + E; x += .9) quad(lines, x, z - .02, x + .45, z + .02, .007); }
+      for (const x of VS) { quad(asph, x - .4, -E, x + .4, H + E, .004); for (let z = -E; z < H + E; z += .9) quad(lines, x - .02, z, x + .02, z + .45, .007); }
+      const am = new THREE.Mesh(geo(asph), mats.asph); am.receiveShadow = true; env.add(am);
+      env.add(new THREE.Mesh(geo(lines), mats.line));
+      if (wx0 !== Infinity) for (const z of HS) { mesh(G.box, mats.asph, (wx0 + wx1) / 2, -.03, z, wx1 - wx0 + .1, .06, .86, env); for (const s of [-1, 1]) mesh(G.box, mats.metal, (wx0 + wx1) / 2, .07, z + s * .42, wx1 - wx0 + .1, .03, .03, env); mesh(G.box, mats.soil, (wx0 + wx1) / 2, -.2, z, .14, .3, .6, env); }
+      // 주변 블록
+      const OB = [mats.ob1, mats.ob2, mats.ob3, mats.ob4, mats.ob5];
+      const onStreet = (c, arr) => arr.some(v => c === Math.floor(v));
+      for (let cz = -13; cz < H + 11; cz++) for (let cx = -15; cx < W + 15; cx++) {
+        if (cx >= 0 && cx < W && cz >= 0 && cz < H) continue;
+        if (onStreet(cx, VS) || onStreet(cz, HS) || (cx >= wx0 && cx < wx1)) continue;
+        const k = cx * 31.7 + cz * 17.3, r = hash(k), r2 = hash(k + 3);
+        if (r < .1) { tree(cx + .3, cz + .4, 1, env); tree(cx + .7, cz + .65, .8, env); continue; }
+        if (r < .16) continue;
+        let h;
+        if (cz >= H) h = cz < H + 4 ? .18 + r2 * .3 : .3 + r2 * .6;
+        else if (cz < 0) h = .6 + r2 * 1.6 + Math.min(1.6, -cz * .14);
+        else h = .45 + r2 * 1.1 + Math.min(1, (cx < 0 ? -cx : cx - W) * .1);
+        const w = .66 + hash(k + 5) * .22, d = .66 + hash(k + 7) * .22;
+        mesh(G.box, OB[Math.floor(hash(k + 9) * 5)], cx + .5, h / 2, cz + .5, w, h, d, env);
+        mesh(G.box, mats.oroof, cx + .5, h + .012, cz + .5, w * .92, .025, d * .92, env, false);
+        for (let y = .16; y < h - .08; y += .26) mesh(G.box, mats.owin, cx + .5, y, cz + .5, w + .012, .07, d + .012, env, false);
+      }
+      // 먼 산
+      for (let k = 0; k < 16; k++) {
+        const r = 5 + hash(k * 2.3) * 5, hh = 4 + hash(k * 4.1) * 6;
+        const m = mesh(G.cone5, k % 2 ? mats.mount : mats.mount2, -26 + k * 4.4 + hash(k) * 2, hh / 2 - .2, -27 - hash(k * 7.7) * 9, r, hh, r, env, false); m.rotation.y = k;
+      }
+      for (let k = 0; k < 6; k++) for (const sx of [-1, 1]) {
+        const r = 5 + hash(k * 9.1 + sx) * 4, hh = 3.5 + hash(k * 3.3 + sx) * 4;
+        mesh(G.cone5, mats.mount, W / 2 + sx * (33 + hash(k + sx) * 6), hh / 2 - .2, -18 + k * 7, r, hh, r, env, false).rotation.y = k * 2;
+      }
+      // 주변 도로를 달리는 차들
+      amb = [];
+      let id = 0;
+      const add = (horiz, c, dir, pos) => { const m = carMesh({ type: 'normal', id: id++, len: .26 }, env); amb.push({ m, horiz, c, dir, pos, v: 1.1 + hash(id) * .5 }); };
+      for (const z of HS) for (let k = 0; k < 7; k++) add(true, z, k % 2 ? 1 : -1, -14 + k * 5.3 + hash(k + z) * 2);
+      for (const x of VS) for (let k = 0; k < 5; k++) add(false, x, k % 2 ? 1 : -1, -10 + k * 5.7 + hash(k + x) * 2);
     }
 
     function tree(x, z, s, parent) {
@@ -156,6 +254,7 @@
     function build(tiles, graph, opt) {
       tilesRef = tiles; graphRef = graph; hover = null;
       if (world) { scene.remove(world); world.traverse(o => { if (o.geometry && !Object.values(G).includes(o.geometry)) o.geometry.dispose(); if (o.material && o.material.map && o.material.map !== tex) { o.material.map.dispose(); } }); }
+      if (!env) buildEnv(tiles);
       world = new THREE.Group(); scene.add(world);
       heat = []; signals = []; peds = []; camSweeps = [];
       cars.clear(); fx.clear();
@@ -165,12 +264,12 @@
       root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: opt && opt.edit ? 'edit' : 'tex', theme: 'poly', groundOnly: true, now: 0 });
       if (tex) tex.dispose();
       tex = new THREE.CanvasTexture(tc); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [] }, side = [], side2 = [];
-      const isLand = (x, y) => x >= 0 && y >= 0 && x < W && y < H && tiles[y * W + x].base !== 'water';
+      const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [], pave: [], siteBg: [] }, side = [], side2 = [];
+      const isLand = (x, y) => !(x >= 0 && y >= 0 && x < W && y < H) || tiles[y * W + x].base !== 'water';
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const t = tiles[y * W + x];
         if (t.base === 'water') continue;
-        quads[t.base === 'rock' ? 'rockBg' : t.base === 'park' ? 'parkBg' : (x + y) % 2 ? 'grassA' : 'grassB'].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
+        quads[t.base === 'rock' ? 'rockBg' : t.base === 'park' ? 'parkBg' : t.base === 'bldg' ? 'pave' : t.base === 'site' ? 'siteBg' : (x + y) % 2 ? 'grassA' : 'grassB'].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
         for (let d = 0; d < 4; d++) {
           if (isLand(x + DX[d], y + DY[d])) continue;
           const c = [[x, y, x + 1, y], [x + 1, y, x + 1, y + 1], [x + 1, y + 1, x, y + 1], [x, y + 1, x, y]][d];
@@ -196,11 +295,6 @@
       hoverMesh = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ color: 0x3ef0ff, transparent: true, opacity: .35, depthWrite: false }));
       hoverMesh.position.y = .03; hoverMesh.visible = false; hoverMesh.renderOrder = 5; world.add(hoverMesh);
 
-      // 물: 삼각형 면이 살아 있는 로우폴리 수면
-      const wg = new THREE.PlaneGeometry(W + 44, H + 44, 44, 40).toNonIndexed(); wg.rotateX(-Math.PI / 2);
-      water = new THREE.Mesh(wg, mats.water); water.position.set(W / 2, -.24, H / 2); water.receiveShadow = true; world.add(water);
-      waterBase = Float32Array.from(wg.attributes.position.array);
-
       const arms = i => { const a = [false, false, false, false]; for (const b of graph.nbr[i * 3]) { const bi = (b / 3) | 0, dx = bi % W - i % W, dy = ((bi / W) | 0) - ((i / W) | 0); a[dx === 1 ? 1 : dx === -1 ? 3 : dy === 1 ? 2 : 0] = true; } return a; };
 
       for (let i = 0; i < W * H; i++) {
@@ -210,6 +304,10 @@
             const m = mesh(G.cone5, k ? mats.rock2 : mats.rock, x + p[0], p[3] / 2, z + p[1], p[2], p[3], p[2]); m.rotation.y = hash(i + k) * 3;
             if (k < 2) { const s = mesh(G.cone5, mats.snow, x + p[0], p[3] * .82, z + p[1], p[2] * .36, p[3] * .36, p[2] * .36); s.rotation.y = m.rotation.y; }
           });
+        } else if (t.base === 'bldg') {
+          cityBlock(x, z, i);
+        } else if (t.base === 'site') {
+          construction(x, z, i, !(x > 0 && tiles[i - 1].base === 'site'));
         } else if (t.base === 'park') {
           tree(x + .28, z + .3, 1); tree(x + .7, z + .36, 1.2); tree(x + .42, z + .72, 1.05); tree(x + .78, z + .78, .8);
         } else if (t.base === 'grass' && !t.road && !t.term && !t.bridge && !t.tunnel) {
@@ -255,9 +353,15 @@
           }
           if (t.crosswalk) {
             const grp = new THREE.Group(); grp.position.set(cx, 0, cz); if (a[0] || a[2]) { /* 도로가 세로 → 보행자는 가로로 이동 */ } else grp.rotation.y = Math.PI / 2; world.add(grp);
-            if (t.overpass) {
-              mesh(G.box, mats.metal, 0, .42, 0, .96, .04, .2, grp);
-              for (const s of [-1, 1]) { mesh(G.box, mats.concrete, s * .42, .2, 0, .06, .4, .16, grp); const st = mesh(G.box, mats.metal, s * .47, .21, s * .22, .1, .04, .5, grp); st.rotation.x = -s * .95; mesh(G.box, mats.beam, 0, .5, s * .1, .96, .02, .015, grp); }
+            if (t.overpass) {                                          // 육교: 상판·난간·계단
+              const dk = .46;
+              mesh(G.box, mats.concrete, 0, dk, 0, .98, .04, .22, grp);
+              for (const sd of [-1, 1]) {
+                mesh(G.box, mats.beam, 0, dk + .085, sd * .105, .98, .016, .016, grp);
+                for (let k = -2; k <= 2; k++) mesh(G.box, mats.beam, k * .23, dk + .05, sd * .105, .014, .07, .014, grp);
+                mesh(G.box, mats.concrete, sd * .4, dk / 2, 0, .05, dk, .12, grp);
+                for (let k = 0; k < 5; k++) { const hk = dk * (1 - (k + 1) / 5) + .03; mesh(G.box, mats.wall, sd * .45, hk / 2, sd * (.15 + k * .065), .1, hk, .065, grp); }
+              }
             }
             for (let k = 0; k < 3; k++) {
               const p = new THREE.Group(); grp.add(p);
@@ -298,7 +402,7 @@
       }
     }
 
-    function carMesh(c) {
+    function carMesh(c, parent) {
       const g = new THREE.Group(), col = c.type === 'normal' ? NORMAL_VARIANTS[c.id % NORMAL_VARIANTS.length] : CARCOL[c.type], bm = M(col), L = c.len;
       g.scale.setScalar(1.18);
       if (c.type === 'bus') {
@@ -312,7 +416,7 @@
         mesh(G.box, mats.wall, L / 2 - .005, .07, .04, .012, .02, .03, g); mesh(G.box, mats.wall, L / 2 - .005, .07, -.04, .012, .02, .03, g);
       }
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) mesh(G.cyl6, mats.dark, sx * L * .3, .03, sz * (c.type === 'bus' ? .075 : .063), .03, .02, .03, g).rotation.x = Math.PI / 2;
-      g.userData.body = bm; world.add(g); return g;
+      g.userData.body = bm; (parent || world).add(g); return g;
     }
     function boom() {
       const g = new THREE.Group();
@@ -339,11 +443,14 @@
     function update(sim, now) {
       if (!world) return;
       const t = now / 1000;
-      // 수면 출렁임
-      const p = water.geometry.attributes.position.array;
-      for (let k = 0; k < p.length; k += 3) p[k + 1] = Math.sin(waterBase[k] * 1.9 + waterBase[k + 2] * .7 + t * 1.3) * .07 + Math.cos(waterBase[k + 2] * 2.3 - waterBase[k] * .5 + t * 1.1) * .07;
-      water.geometry.attributes.position.needsUpdate = true; water.geometry.computeVertexNormals();
-
+      const adt = Math.min(.1, Math.max(0, (now - lastAmb) / 1000)); lastAmb = now;
+      for (const c of amb) {                                    // 주변 도로의 차들은 막힘 없이 달린다
+        c.pos += c.dir * c.v * adt;
+        const lo = c.horiz ? -16 : -13, hi = c.horiz ? W + 16 : H + 13;
+        if (c.pos > hi) c.pos = lo; else if (c.pos < lo) c.pos = hi;
+        if (c.horiz) { c.m.position.set(c.pos, 0, c.c + c.dir * .15); c.m.rotation.y = c.dir > 0 ? 0 : Math.PI; }
+        else { c.m.position.set(c.c - c.dir * .15, 0, c.pos); c.m.rotation.y = c.dir > 0 ? -Math.PI / 2 : Math.PI / 2; }
+      }
       if (sim) {
         // 차량
         const seen = new Set();
@@ -371,7 +478,7 @@
           if (!active) continue;
           const ph = pd.over ? (t * .22 + pd.k * .37) % 1 : (((sim.t + (pd.idx * 3.7) % 13) % 13) / 4 * (0.9 + pd.k * .12) + pd.k * .22) % 1;
           const u = pd.k % 2 ? 1 - ph : ph;
-          pd.g.position.set(-.42 + u * .84, pd.over ? .44 : 0, -.06 + pd.k * .06);
+          pd.g.position.set(-.42 + u * .84, pd.over ? .48 : 0, -.06 + pd.k * .06);
         }
         // 사고 이펙트
         sim.crashes.forEach((cr, k) => {
