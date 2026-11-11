@@ -98,7 +98,7 @@
     graph = F.buildGraph(tiles); conflicts = F.conflictIndex(tiles);
     if (!ST.tools.includes(tool)) tool = ST.tools[0];
     if (V3) V3.setTheme(ST.theme);
-    buildTray(); buildStageUI();
+    buildTray(); buildStageUI(); buildGuide();
     $('hudGoal').textContent = TARGET; $('btnGoals').innerHTML = starRow(best); $('budOf').textContent = '/ ' + won(ST.budget);
     $('presets').innerHTML = (ST.presets || []).map((p, i) => `<button class="link" data-preset="${i}">${p.name}</button>`).join('') || '<span style="color:#6f7482">이 스테이지에는 예시가 없습니다.</span>';
     if (ST.observe) startBefore(); else startEdit();
@@ -406,7 +406,7 @@
   const PS = (window.PIP_SCRIPT || { ask: { button: '', buttonSub: '' } }).ask;
   function showInfo(btn) {
     const T = TOOL[btn.dataset.tool], el = $('toolInfo');
-    el.innerHTML = `<em>${won(T.cost)}</em><b>${T.nm}</b><p>${T.desc}</p><button class="askBtn" data-ask="${T.id}">${PS.button} <span>${PS.buttonSub}</span></button>`;
+    el.innerHTML = `<em>${won(T.cost)}</em><b>${T.nm}</b><p>${T.desc}</p>`;
     el.classList.remove('hidden');
     const wr = wrap.getBoundingClientRect(), br = btn.getBoundingClientRect(), tr = $('tray').getBoundingClientRect();
     const cx = br.left + br.width / 2 - wr.left, w = el.offsetWidth, left = Math.max(8, Math.min(vw - w - 8, cx - w / 2));
@@ -416,16 +416,44 @@
     let html = '', g = 0;
     for (const t of TOOLS.filter(t => ST.tools.includes(t.id))) { if (t.g !== g && html) { html += '<span class="gap"></span>'; g = t.g; } html += `<button class="tool${t.id === tool ? ' sel' : ''}" data-tool="${t.id}" aria-label="${t.nm}">${IC[t.id]}</button>`; }
     $('tray').innerHTML = html;
-    $('tray').querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => {
-      tool = b.dataset.tool;
-      $('tray').querySelectorAll('.tool').forEach(x => x.classList.toggle('sel', x === b));
-      showInfo(b);
-    }));
+    $('tray').querySelectorAll('.tool').forEach(b => {
+      b.addEventListener('click', () => {                    // 누르면 고르기만 한다
+        tool = b.dataset.tool;
+        $('tray').querySelectorAll('.tool').forEach(x => x.classList.toggle('sel', x === b));
+      });
+      // 설명은 손가락(또는 마우스)이 버튼 위에 올라가 있는 동안에만 보인다
+      b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') showInfo(b); });
+      b.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') showInfo(b); });
+      for (const ev of ['pointerleave', 'pointerup', 'pointercancel']) b.addEventListener(ev, hideInfo);
+    });
   }
-  $('tray').addEventListener('scroll', () => hideInfo());
+  $('tray').addEventListener('scroll', () => hideInfo()); $('tray').addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('pointerdown', e => { if (!e.target.closest('.tool') && !e.target.closest('#toolInfo')) hideInfo(); }, true);
 
   /* 예시 설계 — 정답 판정용이 아니라 같은 엔진으로 돌려 볼 수 있는 비교용 */
+  /* ---------- 옆의 ? : 핍에게 들을 수 있는 설명 목록. 도구가 풀릴 때마다 항목이 늘어난다 ---------- */
+  const GREAD = 'flowlab.guide.read';
+  let gread = {}; try { gread = JSON.parse(localStorage.getItem(GREAD) || '{}') || {}; } catch (e) { /* ignore */ }
+  function guideTopics() {
+    const ids = []; for (let k = 0; k < STAGES.length; k++) if (unlocked(k) && k <= Math.max(stageIdx, 0)) for (const id of STAGES[k].tools) if (!ids.includes(id)) ids.push(id);
+    const list = TOOLS.filter(t => ids.includes(t.id)).map(t => ({ id: t.id, nm: t.nm, ic: IC[t.id] }));
+    list.push({ id: 'marks', nm: '차 위의 표시', ic: UI.help }, { id: 'stars', nm: '별과 목표', ic: UI.star });
+    return list;
+  }
+  function buildGuide() {
+    const list = guideTopics(), fresh = list.filter(t => !gread[t.id]).length;
+    $('guideList').innerHTML = list.map(t => `<button data-guide="${t.id}" class="${gread[t.id] ? '' : 'new'}"><span class="gi">${t.ic}</span>${t.nm}</button>`).join('');
+    $('guideN').textContent = fresh || ''; $('guideN').style.display = fresh ? '' : 'none';
+  }
+  $('guideBtn').onclick = () => { buildGuide(); $('guide').classList.toggle('open'); };
+  $('guideList').addEventListener('click', e => {
+    const b = e.target.closest('[data-guide]'); if (!b) return;
+    gread[b.dataset.guide] = 1; try { localStorage.setItem(GREAD, JSON.stringify(gread)); } catch (err) { /* ignore */ }
+    $('guide').classList.remove('open'); buildGuide();
+    if (window.FlowLecture) window.FlowLecture.show(b.dataset.guide);
+  });
+  document.addEventListener('pointerdown', e => { if (e.target.closest && !e.target.closest('#guide') && !e.target.closest('#guideBtn')) $('guide').classList.remove('open'); }, true);
+
   /* ---------- 스테이지 선택 ---------- */
   function buildStageUI() {
     const tab = (st, k) => `<button class="stage${k === stageIdx ? ' active' : ''}${unlocked(k) ? '' : ' locked'}" data-stage="${k}"><b>${st.no}</b>${st.name}${unlocked(k) ? '' : UI.lock.replace('<svg', '<svg class="lk"')}</button>`;

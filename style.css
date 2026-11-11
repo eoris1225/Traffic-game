@@ -381,3 +381,23 @@ button.stCard:hover{transform:translateY(-2px)}
   .stCard{padding:12px 12px 10px}.stCard .stNo{font-size:30px}.stCard b{font-size:18px}.stCard .stBlurb{min-height:0}
   .tSign>div{padding:16px 20px}.tSign h1{font-size:54px}.tSign p{font-size:17px}
 }
+
+/* --- 도구 설명: 손가락이 올라가 있는 동안만 --- */
+#toolInfo{pointer-events:none}
+.tool{touch-action:manipulation}
+/* --- 옆의 ? : 설명 목록 --- */
+#guideBtn{position:absolute;right:10px;top:50%;z-index:6;display:grid;place-items:center;width:44px;height:44px;margin-top:-22px;border-radius:50%;background:var(--yellow);color:var(--ink);box-shadow:0 4px 0 rgba(28,31,39,.85)}
+#guideBtn i[data-ic]{width:24px;height:24px}
+#guideBtn:active{transform:translateY(4px);box-shadow:none}
+#guideN{position:absolute;right:-4px;top:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--red);color:#fff;font-family:var(--num);font-size:14px;font-weight:800;line-height:19px;text-align:center}
+#guide{position:absolute;right:10px;top:50%;z-index:6;width:206px;max-height:min(70%,440px);padding:12px 8px 8px;border-radius:12px;background:var(--asphalt);color:var(--cream);overflow:auto;transform:translate(120%,-50%);transition:transform .22s cubic-bezier(.3,.8,.3,1);box-shadow:0 6px 18px rgba(28,31,39,.35)}
+#guide.open{transform:translate(-54px,-50%)}
+#guide h4{margin:0 8px 8px;font-family:var(--sign);font-weight:400;font-size:17px;color:var(--yellow)}
+#guideList{display:flex;flex-direction:column;gap:2px}
+#guideList button{position:relative;display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-weight:700;font-size:14px;text-align:left}
+#guideList button:hover{background:var(--asphalt2)}
+#guideList .gi{flex:none;display:grid;place-items:center;width:30px;height:28px;border-radius:6px;background:var(--cream);color:var(--ink)}
+#guideList .gi svg{width:22px;height:22px}
+#guideList button.new::after{content:"";position:absolute;right:10px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--yellow)}
+#title:not(.hidden) ~ #guideBtn,body.pre #guideBtn{display:none}
+@media (max-width:560px){#guideBtn{width:40px;height:40px;right:6px}#guide{right:6px;width:190px}#guide.open{transform:translate(-48px,-50%)}}

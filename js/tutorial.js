@@ -29,7 +29,7 @@
     { pose: 'found', spot: () => $('btnPlay'), text: T.run, wait: () => L.mode === 'run' || resultUp() },
     { pose: 'talk', spot: () => $('btnSkip'), text: T.watch, wait: resultUp },
     { pose: 'cheer', spot: () => document.querySelector('#result .card'), text: T.result },
-    { pose: 'talk', spot: () => $('btnHelp'), text: T.help, enter: () => $('result').classList.add('hidden') },
+    { pose: 'talk', spot: () => $('guideBtn'), text: T.help, enter: () => $('result').classList.add('hidden') },
     { pose: 'cheer', text: T.bye }
   ];
   let seq = STEPS;
