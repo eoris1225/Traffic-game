@@ -1,7 +1,7 @@
 {
   "name": "FLOW LAB — 도로과의 마지막 한 해",
   "short_name": "FLOW LAB",
-  "description": "펭귄 주임과 함께 스무 구역의 출근길을 고치는 도로 설계 퍼즐.",
+  "description": "펭귄 주임과 함께 스물네 구역의 출근길을 고치는 도로 설계 퍼즐.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",

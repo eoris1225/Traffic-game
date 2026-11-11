@@ -27,6 +27,7 @@
     skip: S('<path d="M4 5v14l9-7zM13 5v14l7-7z" fill="currentColor"/><rect x="19.5" y="5" width="2.5" height="14" rx="1" fill="currentColor"/>', 24),
     play: S('<path d="M7 4.5v15a1 1 0 0 0 1.5.9l12.5-7.5a1 1 0 0 0 0-1.8L8.5 3.6A1 1 0 0 0 7 4.5z" fill="currentColor"/>', 24),
     stop: S('<rect x="5" y="5" width="14" height="14" rx="2.5" fill="currentColor"/>', 24),
+    flag: S('<path d="M6 21V3.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M7 4.5h11l-2.5 4 2.5 4H7z" fill="currentColor"/>', 24),
     list: S('<rect x="3" y="4" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="14" y="4" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="3" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="14" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/>', 24),
     bulb: S('<path d="M12 3a6.2 6.2 0 0 0-3.6 11.2c.6.5 1 1.2 1 2v.3h5.2v-.3c0-.8.4-1.5 1-2A6.2 6.2 0 0 0 12 3z" fill="currentColor"/><rect x="9.600" y="18" width="4.800" height="1.800" rx=".9" fill="currentColor"/><rect x="10.400" y="20.400" width="3.200" height="1.500" rx=".75" fill="currentColor"/>', 24),
     close: S('<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" ' + ln + '/>', 24),
@@ -469,10 +470,27 @@
       const first = STAGES.findIndex(x => x.wi === wi), got = STAGES.filter(x => x.wi === wi).reduce((a, x) => a + (starsOf(STAGES.indexOf(x)) > 0 ? 1 : 0), 0);
       return `<button class="stage${wi === ST.wi ? ' active' : ''}${unlocked(first) ? '' : ' locked'}" data-world="${wi}"><b>${wi + 1}</b>${w.name}<small>${got}/${w.stages.length}</small></button>`;
     }).join('');
-    $('stageList').innerHTML = WORLDS.map((w, wi) => `<section class="wSec"><h3><b>${wi + 1}</b>${w.name}</h3><div class="wRow">` +
-      w.stages.map(st => { const k = STAGES.indexOf(st), open = unlocked(k);
-        return `<button class="stCard${open ? '' : ' locked'}${k === stageIdx ? ' cur' : ''}" data-stage="${k}"><span class="stNo">${st.no}</span><b>${st.name}</b>` +
-          `<span class="stStars">${open ? st.goals.map((g, j) => star(j < starsOf(k), g.purple)).join('') : UI.lock}</span></button>`; }).join('') + '</div></section>').join('');
+    /* 로드맵: 지역마다 굽은 길 한 줄. 별을 받으면 다음 정거장까지 길이 깔리고, 지역을 끝내면 다음 지역에 색이 든다 */
+    const top = STAGES.reduce((a, x, k) => (unlocked(k) ? k : a), 0), blurbs = ((window.PIP_SCRIPT || {}).story || {}).worlds || [];
+    const NX = k => 85 + k * 166, NY = k => (k % 2 ? 52 : 92), seg = (x0, y0, x1, y1) => `M${x0} ${y0} C${(x0 + x1) / 2} ${y0} ${(x0 + x1) / 2} ${y1} ${x1} ${y1}`;
+    const pip = window.FlowPip && window.FlowPip.imgs ? window.FlowPip.imgs.point : null;
+    $('stageList').innerHTML = WORLDS.map((w, wi) => {
+      const ks = w.stages.map(st => STAGES.indexOf(st)), open = unlocked(ks[0]), fresh0 = open && ks[0] > mapSeen && wi > 0;
+      const got = ks.reduce((a, k) => a + (starsOf(k) > 0 ? 1 : 0), 0);
+      let road = '';
+      const piece = (d, built, fresh) => { road += `<path class="plan" d="${d}"/>` + (built ? `<path class="tar${fresh ? ' fresh' : ''}" pathLength="1" d="${d}"/><path class="dash${fresh ? ' fresh' : ''}" d="${d}"/>` : ''); };
+      piece(`M-12 ${NY(0)} L${NX(0)} ${NY(0)}`, open, fresh0);                                      // 앞 지역에서 들어오는 길
+      ks.forEach((k, j) => { if (j) piece(seg(NX(j - 1), NY(j - 1), NX(j), NY(j)), unlocked(k), unlocked(k) && k > mapSeen); });
+      piece(`M${NX(ks.length - 1)} ${NY(ks.length - 1)} L1012 ${NY(ks.length - 1)}`, wi + 1 < WORLDS.length && unlocked(ks[ks.length - 1] + 1), wi + 1 < WORLDS.length && unlocked(ks[ks.length - 1] + 1) && ks[ks.length - 1] + 1 > mapSeen);
+      const nodes = w.stages.map((st, j) => { const k = ks[j], op = unlocked(k), fr = op && k > mapSeen;
+        return `<button class="node${op ? '' : ' locked'}${st.final ? ' final' : ''}${k === stageIdx ? ' cur' : ''}${fr ? ' fresh' : ''}${starsOf(k) >= st.goals.length ? ' full' : ''}" data-stage="${k}" style="left:${NX(j) / 10}%;top:${NY(j)}px">` +
+          (k === stageIdx && pip ? `<img class="here" src="${pip}" alt="">` : '') +
+          `<span class="pin">${op ? (st.final ? UI.flag : '') + `<i>${st.no}</i>` : UI.lock}</span>` +
+          `<span class="stStars">${op ? st.goals.map((g, n) => star(n < starsOf(k), g.purple)).join('') : ''}</span><b>${st.name}</b></button>`; }).join('');
+      return `<section class="wSec band th-${w.theme}${open ? '' : ' locked'}${fresh0 ? ' fresh' : ''}"><h3><b>${wi + 1}</b>${w.name}<small>${blurbs[wi] || ''}</small><em>${got} / ${ks.length}</em></h3>` +
+        `<div class="lane"><svg viewBox="0 0 1000 150" preserveAspectRatio="none">${road}</svg>${nodes}${open ? '' : '<span class="fog">앞 지역을 끝내면 길이 이어집니다</span>'}</div></section>`;
+    }).join('');
+    mapTop = top;
     document.querySelectorAll('[data-world]').forEach(b => b.onclick = openStages);
     document.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => {
       const k = +b.dataset.stage;
@@ -508,7 +526,16 @@
       if (im.complete && im.naturalWidth) { ctx.globalAlpha = .9; ctx.drawImage(im, cx - sz / 2, cy - sz / 2, sz, sz); ctx.globalAlpha = 1; }
     }
   }
-  const openStages = () => { buildStageUI(); $('stageSel').classList.remove('hidden'); };
+  /* 로드맵에서 "새로 열린 곳" 연출은 스테이지 선택 화면을 열 때 한 번만 보여 준다 */
+  const MAPKEY = 'flowlab.map.v1'; let mapSeen = 0, mapTop = 0, mapT = 0; try { mapSeen = +localStorage.getItem(MAPKEY) || 0; } catch (e) { /* ignore */ }
+  const openStages = () => {
+    buildStageUI(); $('stageSel').classList.remove('hidden');
+    const cur = document.querySelector('#stageList .node.cur') || document.querySelector('#stageList .node.fresh'); if (cur && cur.scrollIntoView) cur.closest('.wSec').scrollIntoView({ block: 'nearest' });
+    if (mapTop > mapSeen) {
+      if (window.FlowSound) { setTimeout(() => window.FlowSound.place(), 500); setTimeout(() => window.FlowSound.star(2), 1250); }
+      clearTimeout(mapT); mapT = setTimeout(() => { mapSeen = mapTop; try { localStorage.setItem(MAPKEY, mapSeen); } catch (e) { /* ignore */ } }, 2600);
+    }
+  };
 
   const openHelp = () => { goalList($('helpGoals'), null, 0); $('help').classList.remove('hidden'); };
   $('btnPlay').onclick = togglePlay;
