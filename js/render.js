@@ -56,7 +56,9 @@
     ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
 
     /* ---------- 지형 ---------- */
+    if (G) ctx.clearRect(0, 0, W, H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (G) break;
       const t = tiles[y * W + x];
       ctx.fillStyle = (x + y) % 2 ? C.grassA : C.grassB;
       ctx.fillRect(x, y, 1, 1);
@@ -87,7 +89,7 @@
         });
       }
     }
-    ctx.strokeStyle = C.grid; ctx.lineWidth = 0.012;
+    ctx.strokeStyle = G ? 'rgba(0,0,0,0)' : C.grid; ctx.lineWidth = 0.012;
     ctx.beginPath();
     for (let x = 0; x <= W; x++) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
     for (let y = 0; y <= H; y++) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
@@ -123,7 +125,7 @@
         else ctx.fillRect(x - .5, y - w / 2, .5, w);
       }
     };
-    for (let i = 0; i < W * H; i++) { const t = tiles[i]; if (t.road) drawRoadShape(i, 0.07, (t.locked && !G) ? 'rgba(255,77,109,.75)' : C.roadEdge); }
+    for (let i = 0; i < W * H; i++) { const t = tiles[i]; if (t.road) drawRoadShape(i, 0.07, (t.locked && (!G || st.mode === 'edit')) ? 'rgba(255,77,109,.85)' : C.roadEdge); }
     for (let i = 0; i < W * H; i++) {
       const t = tiles[i]; if (!t.road) continue;
       if (t.base === 'water' && !G) {                 // 기존 교량 그림자
@@ -474,47 +476,56 @@
       arrow(ctx, c.x + Math.cos(c.ang) * (L / 2 + .02), c.y + Math.sin(c.ang) * (L / 2 + .02), c.ang, len, .05);
       ctx.globalAlpha = 1;
     }
+    if (!st.devLabels) return;
     if (c.calm && c.type === 'speeder') label(ctx, c.x, c.y - .22, '감속! ' + (c.v0 * F.KMH).toFixed(0) + '→' + (Math.min(c.v, 1.3) * F.KMH).toFixed(0) + 'km/h', C.red);
     else if (c.panicUntil > st.sim.t) label(ctx, c.x, c.y - .22, '급정거!', C.yellow);
     else if (c.hesStart >= 0 && st.sim.t - c.hesStart < c.hesDur && c.v < .1) label(ctx, c.x, c.y - .22, '머뭇… τ=' + c.hesDur.toFixed(1) + 's', C.yellow);
     else if (c.ttc < 0.5 && c.v > .5) label(ctx, c.x, c.y - .22, 'TTC ' + c.ttc.toFixed(1) + 's', C.orange);
   }
 
-  /* ---------- 3D 뷰 위에 겹쳐 그리는 2D 라벨 ---------- */
-  function pxLabel(ctx, x, y, text, col) {
-    ctx.font = '700 11px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const w = ctx.measureText(text).width + 12;
-    ctx.fillStyle = 'rgba(10,14,30,.86)'; rr(ctx, x - w / 2, y - 9, w, 18, 6); ctx.fill();
-    ctx.strokeStyle = col; ctx.lineWidth = 1.2; rr(ctx, x - w / 2, y - 9, w, 18, 6); ctx.stroke();
-    ctx.fillStyle = col; ctx.fillText(text, x, y + .5);
+  /* ---------- 3D 뷰 위에 겹쳐 그리는 말풍선 ---------- */
+  function bubble(ctx, x, y, emoji) {
+    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.strokeStyle = 'rgba(30,36,60,.35)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 4, y + 9); ctx.lineTo(x, y + 16); ctx.lineTo(x + 4, y + 9); ctx.closePath(); ctx.fill();
+    ctx.font = '13px system-ui,"Apple Color Emoji","Noto Color Emoji",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#222'; ctx.fillText(emoji, x, y + 1);
   }
+  function pill(ctx, x, y, text, col) {
+    ctx.font = '700 12px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width + 16;
+    ctx.fillStyle = 'rgba(255,255,255,.96)'; rr(ctx, x - w / 2, y - 11, w, 22, 11); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; rr(ctx, x - w / 2, y - 11, w, 22, 11); ctx.stroke();
+    ctx.fillStyle = '#2a3050'; ctx.fillText(text, x, y + .5);
+  }
+  const TYPE_NAME = { normal: '일반 운전자', speeder: '과속 운전자', novice: '초보 운전자', bus: '버스 (승객 20명)' };
   function overlay3d(ctx, st, V) {
     const sim = st.sim; if (!sim) return;
-    C = BASE;
     const tr = st.tracked;
-    if (tr && !tr.gone) {
-      ctx.strokeStyle = C.cyan; ctx.lineWidth = 3; ctx.setLineDash([9, 7]); ctx.lineDashOffset = -st.now / 30;
-      ctx.shadowColor = C.cyan; ctx.shadowBlur = 8; ctx.beginPath();
+    if (tr && !tr.gone) {                                   // 클릭한 차량의 예정 경로
+      ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 4; ctx.setLineDash([2, 9]); ctx.lineCap = 'round'; ctx.lineDashOffset = -st.now / 40;
+      ctx.beginPath();
       let p = V.project(tr.x, tr.y, V.carH(sim, tr) + .1); ctx.moveTo(p[0], p[1]);
       for (let k = tr.i + 1; k < tr.path.length; k++) { p = V.project(sim.nx(tr.path[k]), sim.ny(tr.path[k]), V.nodeH(tr.path[k]) + .1); ctx.lineTo(p[0], p[1]); }
-      ctx.stroke(); ctx.setLineDash([]); ctx.shadowBlur = 0;
-      p = V.project(tr.x, tr.y, V.carH(sim, tr) + .45);
-      pxLabel(ctx, p[0], p[1], 'A* 경로 · ' + (tr.v * F.KMH).toFixed(0) + 'km/h', C.cyan);
+      ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'butt';
+      p = V.project(tr.x, tr.y, V.carH(sim, tr) + .5);
+      const dest = sim.tileOf(tr.dest).term;
+      pill(ctx, p[0], p[1], TYPE_NAME[tr.type] + ' → ' + (dest ? dest.name : ''), CAR[tr.type]);
     }
     for (const c of sim.cars) {
       if (c.crashed || c === tr || c.layer === 2) continue;
-      let txt = null, col = C.yellow;
-      if (c.calm && c.type === 'speeder') { txt = '감속! ' + (c.v0 * F.KMH).toFixed(0) + '→' + (Math.min(c.v, 1.3) * F.KMH).toFixed(0) + 'km/h'; col = C.red; }
-      else if (c.panicUntil > sim.t) txt = '급정거!';
-      else if (c.hesStart >= 0 && sim.t - c.hesStart < c.hesDur && c.v < .1) txt = '머뭇… τ=' + c.hesDur.toFixed(1) + 's';
-      else if (c.ttc < 0.5 && c.v > .5) { txt = 'TTC ' + c.ttc.toFixed(1) + 's'; col = C.orange; }
-      if (!txt) continue;
-      const p = V.project(c.x, c.y, V.carH(sim, c) + .4); pxLabel(ctx, p[0], p[1], txt, col);
+      let e = null;
+      if (c.panicUntil > sim.t) e = '❗';
+      else if (c.hesStart >= 0 && sim.t - c.hesStart < c.hesDur && c.v < .1) e = '❓';
+      else if (c.calm && c.type === 'speeder') e = '📸';
+      else if (c.stopT > 6) e = '💢';
+      if (!e) continue;
+      const p = V.project(c.x, c.y, V.carH(sim, c) + .42); bubble(ctx, p[0], p[1], e);
     }
     for (const cr of sim.crashes) {
       if (sim.t - cr.t > 10.5) continue;
-      const p = V.project(cr.x, cr.y, .85);
-      pxLabel(ctx, p[0], p[1], (cr.rear ? '추돌' : '측면 충돌') + ' · TTC ' + Math.min(cr.ttc, 0.3).toFixed(1) + 's↓', C.red);
+      const p = V.project(cr.x, cr.y, .95);
+      pill(ctx, p[0], p[1], '💥 사고! 도로 통제 중', '#ff4d6d');
     }
   }
 

@@ -21,7 +21,7 @@
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0xc9e3e6, 22, 46);
     const camera = new THREE.PerspectiveCamera(30, 1.5, 0.1, 200);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 0.78));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 0.66));
     const sun = new THREE.DirectionalLight(0xfff1d6, 0.9);
     sun.position.set(W / 2 - 7, 14, H / 2 - 5); sun.target.position.set(W / 2, 0, H / 2);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
@@ -30,9 +30,16 @@
     scene.add(sun); scene.add(sun.target);
 
     const M = (color, opt) => new THREE.MeshLambertMaterial(Object.assign({ color, flatShading: true }, opt || {}));
+    // 배경(지형·나무·물)용 재질: 설계 모드에서는 흑백, 실행하면 컬러로 서서히 바뀐다
+    const decor = [];
+    const D = (color, opt) => {
+      const m = M(color, opt), c = new THREE.Color(color), l = .3 * c.r + .59 * c.g + .11 * c.b;
+      decor.push({ m, c, g: new THREE.Color(l * .5 + .2, l * .5 + .2, l * .5 + .225) }); return m;
+    };
     const mats = {
-      soil: M(0x9a7350), soil2: M(0x7d5a3c), water: M(0x4f93c9, { transparent: true, opacity: 0.94 }),
-      rock: M(0x8f958f), rock2: M(0x767c78), snow: M(0xf4f7fb), trunk: M(0x8a5a3a), leaf: M(0x4f9f5a), leaf2: M(0x3f8a55), leaf3: M(0x69b565),
+      soil: D(0x9a7350, { side: THREE.DoubleSide }), water: D(0x4f93c9, { transparent: true, opacity: 0.94 }),
+      rock: D(0x8f958f), rock2: D(0x767c78), snow: D(0xf4f7fb), trunk: D(0x8a5a3a), leaf: D(0x4f9f5a), leaf2: D(0x3f8a55), leaf3: D(0x69b565),
+      grassA: D(0x74b45e), grassB: D(0x7dbd66), rockBg: D(0xcfc9a8), parkBg: D(0x74b360), sheep: D(0xf3f1ea),
       dark: M(0x2b2f3a), glass: M(0x1d2433), white: M(0xf3f1ea), pole: M(0x5b6170), beam: M(0xf2b233), beam2: M(0xd9544a),
       deck: M(0x4b4f5e), orange: M(0xff8a2a), yellow: M(0xffd23f), concrete: M(0xc9c4b6), wall: M(0xe8dfcf), roofR: M(0xd9604a), roofB: M(0x4a7fd9),
       metal: M(0x9aa3b5), red: M(0xe0453f)
@@ -43,12 +50,21 @@
     };
     G.plane.rotateX(-Math.PI / 2);
 
-    let world = null, tex = null, water = null, waterBase = null;
+    let world = null, tex = null, water = null, waterBase = null, hoverMesh = null;
     let heat = [], signals = [], peds = [], camSweeps = [];
     const cars = new Map(), fx = new Map();
     let tilesRef = null, graphRef = null;
-    const cam = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35, touched: false };
-    let vw = 1, vh = 1;
+    const VIEWS = { top: { yaw: 0, pitch: 1.5, tz: H / 2 + .25 }, iso: { yaw: -0.24, pitch: 0.9, tz: H / 2 + 0.75 } };
+    const cam = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35, touched: false, mode: 'iso' };
+    const tgt = { yaw: -0.24, pitch: 0.9, dist: 18.5, tz: H / 2 + 0.35 };
+    let vw = 1, vh = 1, amt = 1, tAmt = 1, lastNow = 0, hover = null;
+    function fitDist(mode) { const a = vw / vh; return mode === 'top' ? Math.max(20.5, 26 / a) : Math.max(20, 27 / a); }
+    function setView(mode, instant) {
+      cam.mode = mode; cam.touched = false;
+      const v = VIEWS[mode]; tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tz = v.tz; tgt.dist = fitDist(mode);
+      tAmt = mode === 'top' ? 0 : 1;
+      if (instant) { cam.yaw = tgt.yaw; cam.pitch = tgt.pitch; cam.tz = tgt.tz; cam.dist = tgt.dist; amt = tAmt; }
+    }
 
     function mesh(geo, mat, x, y, z, sx, sy, sz, parent, shadow) {
       const m = new THREE.Mesh(geo, mat);
@@ -132,8 +148,8 @@
       }
     }
 
-    function build(tiles, graph) {
-      tilesRef = tiles; graphRef = graph;
+    function build(tiles, graph, opt) {
+      tilesRef = tiles; graphRef = graph; hover = null;
       if (world) { scene.remove(world); world.traverse(o => { if (o.geometry && !Object.values(G).includes(o.geometry)) o.geometry.dispose(); if (o.material && o.material.map && o.material.map !== tex) { o.material.map.dispose(); } }); }
       world = new THREE.Group(); scene.add(world);
       heat = []; signals = []; peds = []; camSweeps = [];
@@ -141,30 +157,36 @@
 
       // 지면 텍스처: 2D 렌더러로 도로·노면 표시를 그려 그대로 입힌다
       const TP = 128, tc = document.createElement('canvas'); tc.width = W * TP; tc.height = H * TP;
-      root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: 'tex', theme: 'poly', groundOnly: true, now: 0 });
+      root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: opt && opt.edit ? 'edit' : 'tex', theme: 'poly', groundOnly: true, now: 0 });
       if (tex) tex.dispose();
       tex = new THREE.CanvasTexture(tc); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const pos = [], uv = [], side = [];
+      const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [] }, side = [];
       const isLand = (x, y) => x >= 0 && y >= 0 && x < W && y < H && tiles[y * W + x].base !== 'water';
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const t = tiles[y * W + x];
-        if (t.base === 'water' && !t.road) continue;
-        const u0 = x / W, u1 = (x + 1) / W, v1 = 1 - y / H, v0 = 1 - (y + 1) / H;
-        pos.push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
-        uv.push(u0, v1, u0, v0, u1, v0, u0, v1, u1, v0, u1, v1);
         if (t.base === 'water') continue;
+        quads[t.base === 'rock' ? 'rockBg' : t.base === 'park' ? 'parkBg' : (x + y) % 2 ? 'grassA' : 'grassB'].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
         for (let d = 0; d < 4; d++) {
           if (isLand(x + DX[d], y + DY[d])) continue;
           const c = [[x, y, x + 1, y], [x + 1, y, x + 1, y + 1], [x + 1, y + 1, x, y + 1], [x, y + 1, x, y]][d], b = -.6;
           side.push(c[0], 0, c[1], c[2], 0, c[3], c[2], b, c[3], c[0], 0, c[1], c[2], b, c[3], c[0], b, c[1]);
         }
       }
-      const g1 = new THREE.BufferGeometry();
-      g1.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g1.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g1.computeVertexNormals();
-      const top = new THREE.Mesh(g1, new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5 })); top.receiveShadow = true; world.add(top);
+      for (const k in quads) {
+        if (!quads[k].length) continue;
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(quads[k], 3)); g.computeVertexNormals();
+        const m = new THREE.Mesh(g, mats[k]); m.receiveShadow = true; world.add(m);
+      }
       const g2 = new THREE.BufferGeometry();
       g2.setAttribute('position', new THREE.Float32BufferAttribute(side, 3)); g2.computeVertexNormals();
-      world.add(new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ color: 0x9a7350, flatShading: true, side: THREE.DoubleSide })));
+      world.add(new THREE.Mesh(g2, mats.soil));
+      // 도로·노면 표시 레이어(투명 배경 텍스처)
+      const rg = new THREE.PlaneGeometry(W, H); rg.rotateX(-Math.PI / 2);
+      const roads = new THREE.Mesh(rg, new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false }));
+      roads.position.set(W / 2, .006, H / 2); roads.receiveShadow = true; roads.renderOrder = 1; world.add(roads);
+      // 선택 타일 표시
+      hoverMesh = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ color: 0x3ef0ff, transparent: true, opacity: .35, depthWrite: false }));
+      hoverMesh.position.y = .03; hoverMesh.visible = false; hoverMesh.renderOrder = 5; world.add(hoverMesh);
 
       // 물: 삼각형 면이 살아 있는 로우폴리 수면
       const wg = new THREE.PlaneGeometry(W + 7, H + 7, 22, 18).toNonIndexed(); wg.rotateX(-Math.PI / 2);
@@ -186,14 +208,14 @@
           const k = hash(i * 3.3);
           if (k < .22) tree(x + .3 + hash(i) * .4, z + .3 + hash(i + 9) * .4, .8 + hash(i + 4) * .4);
           else if (k < .3) { const r = mesh(G.ico, mats.rock, x + .5, .05, z + .55, .12, .08, .1); r.rotation.y = k * 20; }
-          else if (k < .36) { mesh(G.ico, mats.white, x + .4, .07, z + .5, .08, .06, .06); mesh(G.box, mats.dark, x + .47, .08, z + .5, .04, .04, .04); }   // 양
+          else if (k < .36) { mesh(G.ico, mats.sheep, x + .4, .07, z + .5, .08, .06, .06); mesh(G.box, mats.dark, x + .47, .08, z + .5, .04, .04, .04); }   // 양
         }
         if (t.term) building(t, x, z);
         const a = arms(i), vert = (a[0] || a[2]) && !(a[1] || a[3]);
 
         if (t.road) {
           const hp = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ color: 0x36f1a0, transparent: true, opacity: 0, depthWrite: false }));
-          hp.position.set(cx, .012, cz); hp.scale.set(.8, 1, .8); world.add(hp); heat.push({ m: hp, i });
+          hp.position.set(cx, .012, cz); hp.scale.set(.8, 1, .8); hp.renderOrder = 2; world.add(hp); heat.push({ m: hp, i });
           if (t.base === 'water') {                                   // 기존 교량: 교각·난간
             mesh(G.box, mats.concrete, cx, -.32, cz, .16, .6, .5);
             for (const s of [-1, 1]) { beam(x, .09, cz + s * .33, x + 1, .09, cz + s * .33, .03, mats.red); beam(x, 0, cz + s * .33, x + .5, .09, cz + s * .33, .02, mats.red); beam(x + .5, .09, cz + s * .33, x + 1, 0, cz + s * .33, .02, mats.red); }
@@ -232,7 +254,7 @@
             for (let k = 0; k < 3; k++) {
               const p = new THREE.Group(); grp.add(p);
               mesh(G.box, M([0xff5fa2, 0x3ec7ff, 0xffd23f][k]), 0, .06, 0, .045, .09, .035, p); mesh(G.ico, mats.wall, 0, .13, 0, .028, .028, .028, p);
-              peds.push({ g: p, idx: i, k, over: t.overpass });
+              p.visible = !!t.overpass; peds.push({ g: p, idx: i, k, over: t.overpass });
             }
           }
         }
@@ -292,8 +314,13 @@
       g.userData.core = core; g.userData.inner = inner; world.add(g); return g;
     }
 
+    const cA = new THREE.Color(), sunDay = new THREE.Color(0xfff1d6), sunEve = new THREE.Color(0xffb27a);
     function applyCam(now) {
-      const yaw = cam.yaw + (cam.touched ? 0 : Math.sin(now * 0.00012) * 0.07);
+      const dt = Math.min(.1, Math.max(0, (now - lastNow) / 1000)); lastNow = now;
+      const k = 1 - Math.exp(-dt * 4.5);
+      cam.yaw += (tgt.yaw - cam.yaw) * k; cam.pitch += (tgt.pitch - cam.pitch) * k; cam.dist += (tgt.dist - cam.dist) * k; cam.tz += (tgt.tz - cam.tz) * k;
+      if (Math.abs(tAmt - amt) > .002) { amt += (tAmt - amt) * Math.min(1, dt * 3.2); for (const d of decor) d.m.color.copy(cA.copy(d.g).lerp(d.c, amt)); }
+      const yaw = cam.yaw + ((cam.touched || cam.mode === 'top') ? 0 : Math.sin(now * 0.00012) * 0.07 * amt);
       const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
       camera.position.set(cam.tx + Math.sin(yaw) * cp * cam.dist, sp * cam.dist, cam.tz + Math.cos(yaw) * cp * cam.dist);
       camera.lookAt(cam.tx, 0, cam.tz);
@@ -350,19 +377,27 @@
         });
         for (const [k, g] of fx) if (k >= sim.crashes.length) { world.remove(g); fx.delete(k); }
       }
+      else for (const hp of heat) hp.m.material.opacity = 0;
+      // 퇴근 시간대에는 노을빛
+      const eve = sim ? Math.max(0, Math.min(1, (sim.t - F.PM_START + 6) / 12)) : 0;
+      sun.color.copy(sunDay).lerp(sunEve, eve);
+      if (hoverMesh) { hoverMesh.visible = !!hover; if (hover) { hoverMesh.position.set(hover.x + .5, .03, hover.y + .5); hoverMesh.material.color.setHex(hover.ok ? 0x3ef0ff : 0xff4d6d); } }
       camSweeps.forEach((sw, k) => { sw.rotation.z = t * 1.4 + k; });
       applyCam(now);
       renderer.render(scene, camera);
     }
 
-    const v3 = new THREE.Vector3();
+    const v3 = new THREE.Vector3(), ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     return {
-      canvas, build, update, nodeH, carH,
-      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); },
+      canvas, build, update, nodeH, carH, setView,
+      get colorAmt() { return amt; },
+      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (!cam.touched) tgt.dist = fitDist(cam.mode); },
       project(x, y, h) { v3.set(x, h || 0, y).project(camera); return [(v3.x + 1) / 2 * vw, (1 - v3.y) / 2 * vh]; },
-      orbit(dx, dy) { cam.touched = true; cam.yaw -= dx * 0.006; cam.pitch = Math.max(0.35, Math.min(1.45, cam.pitch + dy * 0.005)); },
-      zoom(f) { cam.touched = true; cam.dist = Math.max(8, Math.min(34, cam.dist * f)); },
-      resetCam() { cam.yaw = -0.24; cam.pitch = 0.9; cam.dist = 18.5; cam.touched = false; },
+      /* 화면 좌표 → 지면 좌표(타일 단위) */
+      pick(px, py) { ndc.set(px / vw * 2 - 1, 1 - py / vh * 2); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, v3) ? [v3.x, v3.z] : null; },
+      setHover(h) { hover = h; },
+      orbit(dx, dy) { if (cam.mode !== 'iso') return; cam.touched = true; tgt.yaw -= dx * 0.006; tgt.pitch = Math.max(0.35, Math.min(1.45, tgt.pitch + dy * 0.005)); },
+      zoom(f) { cam.touched = true; tgt.dist = Math.max(8, Math.min(36, tgt.dist * f)); },
       show(on) { canvas.style.display = on ? 'block' : 'none'; }
     };
   }

@@ -39,14 +39,14 @@
    *  3 E1 오피스  4 E2 물류항
    * ------------------------------------------------------------------------ */
   const STAGE1 = [
-    '.......~~...',
-    '...####~~.3.',
-    '...1.P#~~.#.',
-    '...X.P#~~.#.',
-    '2##LLLL==XL.',
-    '....^..~~.#.',
-    '....^..~~.4.',
-    '....^..~~...'
+    '........~...',
+    '....2...~...',
+    '....####=###',
+    '....#PP.~..#',
+    '1LXLLLLL=XL3',
+    '#...^^.#~...',
+    '########~...',
+    '.......4~...'
   ];
   const TERMS = {
     '1': { id: 'S1', kind: 'home', name: '주거단지' },
@@ -57,17 +57,16 @@
 
   /* 수요(대/초): 전반부 = 출근(서→동), 후반부 = 퇴근(동→서) */
   const FLOWS = [
-    { from: 'S1', to: 'E1', am: 0.20, pm: 0.07 },
-    { from: 'S1', to: 'E2', am: 0.15, pm: 0.05 },
-    { from: 'S2', to: 'E1', am: 0.16, pm: 0.05 },
-    { from: 'S2', to: 'E2', am: 0.20, pm: 0.07 },
-    { from: 'E1', to: 'S1', am: 0.03, pm: 0.17 },
-    { from: 'E1', to: 'S2', am: 0.02, pm: 0.12 },
-    { from: 'E2', to: 'S2', am: 0.03, pm: 0.17 },
-    { from: 'E2', to: 'S1', am: 0.02, pm: 0.09 }
+    { from: 'S1', to: 'E1', am: 0.60, pm: 0.18 },
+    { from: 'E1', to: 'S1', am: 0.08, pm: 0.50 },
+    { from: 'S1', to: 'E2', am: 0.07, pm: 0.03 },
+    { from: 'S2', to: 'E1', am: 0.07, pm: 0.03 },
+    { from: 'E1', to: 'S2', am: 0.02, pm: 0.06 },
+    { from: 'E2', to: 'S1', am: 0.02, pm: 0.06 }
   ];
   const PM_START = 50;
-  const DEMAND_SCALE = 1.3;
+  const DEMAND_SCALE = 1.5;
+  const CW_CYCLE = 12, CW_WALK = 8;                     // 횡단보도: 12초 주기 중 8초 보행 신호(병목)
   const BUS_LINES = [
     { from: 'S1', to: 'E1', start: 3, every: 12, until: 100 },
     { from: 'E1', to: 'S1', start: 56, every: 15, until: 100 }
@@ -455,7 +454,7 @@
     cwActive(idx) {
       const t = this.tiles[idx];
       if (!t.crosswalk || t.overpass) return false;
-      return ((this.t + (idx * 3.7) % 13) % 13) < 4;
+      return ((this.t + (idx * 3.7) % CW_CYCLE) % CW_CYCLE) < CW_WALK;
     }
 
     updateControls() {
@@ -884,6 +883,7 @@
           const g = this.roundGeom(inPart ? c.path[c.i] : c.prev, c.box, inPart ? c.path[c.i + 2] : c.path[c.i + 1]);
           scale = Math.min(1, 0.6 / g.L);
         }
+        c.stopT = c.v < 0.05 ? (c.stopT || 0) + dt : 0;
         const before = c.s;
         c.s += c.v * dt * scale;
         const B = c.path[c.i + 1];
