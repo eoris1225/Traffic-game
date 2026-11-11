@@ -4,7 +4,7 @@
   'use strict';
   const F = window.FlowSim, R = window.FlowRender, W = F.W, H = F.H;
   const $ = id => document.getElementById(id);
-  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.stage1.v3';
+  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.stage1.v4';
 
   /* 목표: 앞 단계를 달성해야 다음 별을 받는다. 뒤로 갈수록 어렵다. */
   const PURPLE_BUDGET = 1200;
@@ -57,7 +57,7 @@
 
   /* ---------- 도구 (설명은 일상 언어로) ---------- */
   const TOOLS = [
-    { id: 'road', g: 0, nm: '도로', cost: F.COST.road, desc: '빈 땅에 새 길을 냅니다.' },
+    { id: 'road', g: 0, nm: '도로', cost: F.COST.road, desc: '빈 터에 새 길을 냅니다. 풀밭·텃밭·주차장은 빈 터, 집과 건물은 안 됩니다.' },
     { id: 'wide', g: 0, nm: '차선 확장', cost: F.COST.wide, desc: '2칸 이상 이어 깔면 2차로가 되어 느린 차를 앞지를 수 있어요.' },
     { id: 'oneway', g: 0, nm: '일방통행', cost: F.COST.oneway, desc: '한쪽 방향으로만 다니게 합니다. 누를 때마다 방향이 바뀌어요.' },
     { id: 'demolish', g: 0, nm: '철거', cost: F.COST.demolish, desc: '설치한 것은 전액 환불로 회수, 원래 있던 도로는 $50에 철거.' },
@@ -66,7 +66,7 @@
     { id: 'rev', g: 1, nm: '가변 차선', cost: F.COST.rev, desc: '가운데 차로가 붐비는 방향 쪽으로 자동으로 바뀝니다. 2칸 이상.' },
     { id: 'round', g: 2, nm: '회전교차로', cost: F.COST.round, desc: '멈추지 않고 천천히 돌아 나가는 교차로. 충돌 위험이 크게 줄어요.' },
     { id: 'signal', g: 2, nm: '신호등', cost: F.COST.signal, desc: '차례를 정해 줘서 눈치 싸움과 머뭇거림을 없앱니다.' },
-    { id: 'bridge', g: 2, nm: '다리', cost: F.COST.bridge, desc: '강을 건너거나 다른 도로 위로 넘어갑니다. 누를 때마다 방향 전환.' },
+    { id: 'bridge', g: 2, nm: '다리', cost: F.COST.bridge, desc: '강은 다리로만 건널 수 있습니다. 다른 도로 위로 넘길 때도 씁니다. 누를 때마다 방향 전환.' },
     { id: 'tunnel', g: 2, nm: '지하차도', cost: F.COST.tunnel, desc: '바위·공원·도로 밑으로 지나갑니다. 누를 때마다 방향 전환.' },
     { id: 'overpass', g: 2, nm: '육교', cost: F.COST.overpass, desc: '횡단보도 위에 놓으면 차가 보행자를 기다리지 않아도 됩니다.' },
     { id: 'camera', g: 3, nm: '단속 카메라', cost: F.COST.camera, desc: '주변의 과속 차량만 골라 얌전하게 만듭니다.' },
@@ -117,13 +117,13 @@
   function check(i, id) {
     const t = tiles[i];
     switch (id) {
-      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
+      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'house') return '사람 사는 집이에요. 길은 빈 터에 내 주세요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base === 'water') return '강 위에는 도로 대신 다리를 놓아야 해요'; if (t.base === 'park') return '공원은 밀 수 없어요. 밑으로 지하차도를 내 보세요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
       case 'wide': if (!t.road) return '도로 위에만 설치할 수 있어요'; if (t.locked) return '잠긴 도로는 넓힐 수 없어요'; return null;
       case 'rev': case 'oneway': case 'guide': case 'bus': case 'bump': case 'barricade': case 'camera': case 'round': case 'signal':
         return t.road ? null : '도로 위에만 설치할 수 있어요';
       case 'overpass': return t.crosswalk && t.road ? null : '횡단보도 위에만 놓을 수 있어요';
       case 'bridge': if (t.term) return '건물 위에는 놓을 수 없어요'; if (!(t.base === 'water' || t.road)) return '다리는 강 위나 도로 위에만 놓을 수 있어요'; return null;
-      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '강 밑으로는 뚫을 수 없어요'; if (t.base === 'bldg') return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; return null;
+      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '강 밑으로는 뚫을 수 없어요'; if (t.base === 'bldg' || t.base === 'house') return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; return null;
       case 'demolish': {
         const o = base[i];
         if (F.tileCost(t, o) > 0 && !(o.road && !t.road)) return null;
@@ -193,14 +193,14 @@
     const pb = $('btnPlay'); pb.innerHTML = `<i data-ic>${m === 'edit' ? UI.play : UI.stop}</i>`; pb.classList.toggle('stop', m !== 'edit');
     for (const id of ['btnSkip', 'btnSpeed']) $(id).style.visibility = m === 'edit' ? 'hidden' : 'visible';
     for (const id of ['btnUndo', 'btnReset']) $(id).style.visibility = m === 'edit' ? 'visible' : 'hidden';
-    if (m === 'before') setCaption('도심 한복판이 마비됐습니다. 어디가 문제인지 찾아보세요.', true);
+    if (m === 'before') setCaption('오전 8시. 아무도 움직이지 못합니다. 어디서 엉키는지 지켜보세요.', true);
     else if (m === 'run') setCaption('');
     rebuild3d();
     if (V3) V3.setView(m === 'edit' ? 'top' : 'iso');
     updateBudget();
   }
   function startBefore() { sim = new F.Sim(base, { seed: SEED }); tracked = null; paused = false; acc = 0; setMode('before'); }
-  function startEdit() { sim = null; tracked = null; setMode('edit'); setCaption('도구를 골라 칸을 누르세요'); schedulePredict(); }
+  function startEdit() { sim = null; tracked = null; setMode('edit'); setCaption('도구를 고르고, 고칠 칸을 누르세요'); schedulePredict(); }
   function startRun() { sim = new F.Sim(tiles, { seed: SEED }); tracked = null; paused = false; acc = 0; setMode('run'); }
 
   function finish() {
@@ -215,8 +215,8 @@
       save(); $('btnGoals').innerHTML = starRow(best);
     }
     const sg = $('resSign');
-    if (isBefore) { sg.className = 'fail'; sg.textContent = '이대로는 안 되겠어요'; }
-    else { sg.className = st ? 'clear' : 'fail'; sg.textContent = ['아직 너무 느려요', '길이 뚫렸어요', '안전하게 뚫렸어요', '시원하게 뚫렸어요', '완벽한 설계'][st]; }
+    if (isBefore) { sg.className = 'fail'; sg.textContent = '평소와 같은 아침입니다'; }
+    else { sg.className = st ? 'clear' : 'fail'; sg.textContent = ['아직은 걷는 편이 빠릅니다', '차가 움직이기 시작했습니다', '아무도 다치지 않았습니다', '출근길이 조용해졌습니다', '더 손댈 곳이 없습니다'][st]; }
     $('resStars').innerHTML = starRow(st);
     goalList($('resGoals'), m, c);
     $('resBody').innerHTML = isBefore
@@ -251,7 +251,7 @@
     predTimer = setTimeout(() => {
       if (mode !== 'edit') return;
       if (!predBase) predBase = new F.Sim(base, { seed: PRED_SEED }).run();
-      if (cost() === 0) { setCaption('도구를 골라 칸을 누르세요'); return; }
+      if (cost() === 0) { setCaption('도구를 고르고, 고칠 칸을 누르세요'); return; }
       const m = new F.Sim(tiles, { seed: PRED_SEED }).run(), d = m.perCapita - predBase.perCapita;
       setCaption(`이대로 실행하면 약 <b>${m.perCapita.toFixed(0)}초</b> <span class="${d < 0 ? 'good' : 'bad'}">(${d < 0 ? '' : '+'}${d.toFixed(0)}초)</span> · 사고 <b class="${m.accidents === 0 ? 'good' : 'bad'}">${m.accidents}건</b>`);
     }, 250);

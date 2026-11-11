@@ -14,7 +14,7 @@
     // 설계 모드: 청사진(블루프린트) 느낌의 2D 도면
     blueprint: { grassA: '#474c78', grassB: '#4a4f7d', grid: '#6d73a8', water: '#35568f', road: '#252945', roadEdge: '#a3a9dc', rockBg: '#3a3e63', rock: '#5d6190', rockHi: '#7c81b3', park: '#3d6a63', tree: '#58a58c' },
     // 3D 지면 텍스처용
-    poly: { grassA: '#86bf6b', grassB: '#8cc671', grid: 'rgba(0,0,0,0)', water: '#4f8fc0', road: '#4b4f5e', roadEdge: '#e4dcc6', rockBg: '#9aa08f', park: '#74b360' }
+    poly: { grassA: '#86bf6b', grassB: '#8cc671', grid: 'rgba(0,0,0,0)', water: '#4f8fc0', road: '#555965', roadEdge: '#a9a496', rockBg: '#9aa08f', park: '#74b360' }
   };
   let C = BASE;
   const CAR = { normal: '#4da3ff', speeder: '#ff4d5e', novice: '#ffd84a', bus: '#36f1a0' };
@@ -72,8 +72,8 @@
           for (let u = 0; u <= 1.001; u += 0.1) { const py = yy + Math.sin(ph + u * 6) * 0.03; if (u === 0) ctx.moveTo(x + u, py); else ctx.lineTo(x + u, py); }
           ctx.stroke();
         }
-      } else if (t.base === 'bldg' || t.base === 'site') {
-        ctx.fillStyle = t.base === 'bldg' ? '#8f95a3' : '#c7a878'; ctx.fillRect(x + .06, y + .06, .88, .88);
+      } else if (t.base === 'bldg' || t.base === 'site' || t.base === 'house') {
+        ctx.fillStyle = t.base === 'bldg' ? '#8f95a3' : t.base === 'house' ? '#b98f7c' : '#c7a878'; ctx.fillRect(x + .06, y + .06, .88, .88);
       } else if (t.base === 'rock') {
         ctx.fillStyle = C.rockBg; ctx.fillRect(x, y, 1, 1);
         if (G) continue;
@@ -91,7 +91,7 @@
         });
       }
     }
-    ctx.strokeStyle = G ? 'rgba(0,0,0,0)' : C.grid; ctx.lineWidth = 0.012;
+    ctx.strokeStyle = G ? (st.mode === 'edit' ? 'rgba(40,44,60,.13)' : 'rgba(0,0,0,0)') : C.grid; ctx.lineWidth = 0.012;
     ctx.beginPath();
     for (let x = 0; x <= W; x++) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
     for (let y = 0; y <= H; y++) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
@@ -127,6 +127,7 @@
         else ctx.fillRect(x - .5, y - w / 2, .5, w);
       }
     };
+    if (G) for (let i = 0; i < W * H; i++) { const t = tiles[i]; if (t.road && !t.wide) drawRoadShape(i, 0.27, '#d3cdbf'); }   // 보도
     for (let i = 0; i < W * H; i++) { const t = tiles[i]; if (t.road) drawRoadShape(i, 0.07, (t.locked && (!G || st.mode === 'edit')) ? 'rgba(255,77,109,.85)' : C.roadEdge); }
     for (let i = 0; i < W * H; i++) {
       const t = tiles[i]; if (!t.road) continue;
