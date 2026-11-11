@@ -50,6 +50,7 @@
     idx = k; step = seq[k];
     if (!step) return seq === STEPS ? finale() : end(false);
     if (step.enter) step.enter();
+    $('toolInfo').classList.add('hidden');                      // 도구 설명 창이 핍의 말풍선과 겹치지 않게
     tut.className = 'at-' + (step.at || 'talk') + (step.wait ? ' waiting' : '') + (step.auto ? ' auto' : '');
     face($('tutPip'), step.pose);
     const im = $('tutPip'); im.classList.remove('pop'); void im.offsetWidth; im.classList.add('pop');

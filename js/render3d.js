@@ -116,10 +116,20 @@
     const cam = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35, touched: false, mode: 'iso' };
     const tgt = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35 };
     let vw = 1, vh = 1, amt = 1, tAmt = 1, lastNow = 0, hover = null;
-    function fitDist(mode) { const a = vw / vh; return mode === 'top' ? Math.max(22, 26 / a) : Math.max(20, 27 / a); }
+    /* 세로 화면(휴대폰)에서는 지도를 90° 돌려 긴 변이 세로로 오게 한다: 출발지가 아래, 도착지가 위 */
+    const portrait = () => vw / vh < 0.8;
+    function fitDist(mode) {
+      const a = vw / vh;
+      if (portrait()) return mode === 'top' ? Math.max((W + 4.2) / .536, (H + 1) / (.536 * a)) : Math.max((W + 5) / .536, (H + 2.2) / (.536 * a));
+      return mode === 'top' ? Math.max(22, 26 / a) : Math.max(20, 27 / a);
+    }
+    function viewOf(mode) {
+      const v = VIEWS[mode];
+      return portrait() ? { yaw: v.yaw - Math.PI / 2, pitch: mode === 'top' ? v.pitch : .86, tx: W / 2 + (mode === 'top' ? -.2 : -.6), tz: H / 2 } : { yaw: v.yaw, pitch: v.pitch, tx: W / 2, tz: v.tz };
+    }
     function setView(mode, instant) {
       cam.mode = mode; cam.touched = false;
-      const v = VIEWS[mode]; tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = W / 2; tgt.tz = v.tz; tgt.dist = fitDist(mode);
+      const v = viewOf(mode); if (Math.abs(v.yaw - cam.yaw) > Math.PI) cam.yaw += v.yaw > cam.yaw ? 2 * Math.PI : -2 * Math.PI; tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = v.tx; tgt.tz = v.tz; tgt.dist = fitDist(mode);
       tAmt = mode === 'top' ? 0 : 1;
       if (instant) { cam.yaw = tgt.yaw; cam.pitch = tgt.pitch; cam.tx = tgt.tx; cam.tz = tgt.tz; cam.dist = tgt.dist; amt = tAmt; }
     }
@@ -970,7 +980,7 @@
         amb = []; envWalkers = []; boats = []; envMills = []; critters = [];
       },
       get colorAmt() { return amt; },
-      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (!cam.touched) tgt.dist = fitDist(cam.mode); },
+      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (!cam.touched) { const v = viewOf(cam.mode); tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = v.tx; tgt.tz = v.tz; tgt.dist = fitDist(cam.mode); } },
       project(x, y, h) { v3.set(x, h || 0, y).project(camera); return [(v3.x + 1) / 2 * vw, (1 - v3.y) / 2 * vh]; },
       /* 화면 좌표 → 지면 좌표(타일 단위) */
       pick(px, py) { ndc.set(px / vw * 2 - 1, 1 - py / vh * 2); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, v3) ? [v3.x, v3.z] : null; },
@@ -979,7 +989,7 @@
       /* 확대·축소. (px, py) 를 주면 그 지점을 중심으로 당긴다 */
       zoom(f, px, py) {
         cam.touched = true;
-        const nd = Math.max(5, Math.min(36, tgt.dist * f)), k = nd / tgt.dist; tgt.dist = nd;
+        const nd = Math.max(5, Math.min(48, tgt.dist * f)), k = nd / tgt.dist; tgt.dist = nd;
         if (px === undefined || k === 1) return;
         const p = this.pick(px, py); if (!p) return;
         tgt.tx = Math.max(-2, Math.min(W + 2, p[0] + (tgt.tx - p[0]) * k)); tgt.tz = Math.max(-2, Math.min(H + 3, p[1] + (tgt.tz - p[1]) * k));

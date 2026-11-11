@@ -317,7 +317,7 @@ body.pre #topbar,body.pre #hud,body.pre #caption,body.pre #tray,body.pre #toolIn
   #tut.at-C #tutPip{width:240px;margin-left:-120px}#tut.at-C #tutBubble{bottom:220px}#tut.at-C #tutBubble p{font-size:22px}
   #tutSkip{top:66px}
   #tut.dock-top #tutPip{top:96px}#tut.dock-top #tutBubble{top:112px}
-  #askPip{width:150px;right:-18px;bottom:auto;top:-70px}#askBubble{margin-right:0}#askBubble p{font-size:14px}#askBubble:before{display:none}#askTitle{font-size:18px}
+  #askPip{width:150px;right:-18px;bottom:auto;top:-104px}#askBubble{margin-right:0}#askBubble p{font-size:14px}#askBubble:before{display:none}#askTitle{font-size:18px}
   #endPip{width:130px;right:-14px;top:-84px}.endCard h2{font-size:28px}
 }
 
@@ -362,3 +362,22 @@ button.stCard:hover{transform:translateY(-2px)}
 .tGo,.cta,#captionBtn{font-family:var(--sign);font-weight:400;font-size:18px;letter-spacing:.01em}
 .tGo{font-size:24px}
 #stages .stage b{font-family:var(--num);font-size:16px}
+
+/* --- 휴대폰 세로 화면 --- */
+@media (max-width:560px){
+  #topbar{padding:7px 4px 11px;gap:2px}
+  #topbar .side{flex:0 0 auto;gap:0}
+  #topbar .side.right{margin-left:auto}
+  .ib{width:33px;height:36px}
+  #btnGoals{display:none}
+  #budget{margin:0 2px;padding:3px 9px 4px;outline-offset:-4px}
+  #budget b{font-size:21px}#budget .of{display:none}
+  .play{width:44px;height:38px;margin-left:2px}
+  #caption{font-size:13px;line-height:1.35}
+  #captionBtn{display:block;margin:8px auto 0}
+  #result .card{padding:18px 18px 16px}
+  .resBtns{flex-wrap:wrap;gap:12px 16px}
+  #stageList{grid-template-columns:1fr 1fr;gap:10px}
+  .stCard{padding:12px 12px 10px}.stCard .stNo{font-size:30px}.stCard b{font-size:18px}.stCard .stBlurb{min-height:0}
+  .tSign>div{padding:16px 20px}.tSign h1{font-size:54px}.tSign p{font-size:17px}
+}

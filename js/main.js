@@ -6,7 +6,7 @@
   const $ = id => document.getElementById(id);
   const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.v7.', PROG = 'flowlab.progress.v1';
   const STAGES = window.FlowStages.STAGES, SOON = window.FlowStages.SOON;
-  const won = c => (c >= 1000 ? '$' + (c / 1000) + 'M' : '$' + c + 'K');   // 돈: 내부값 100 = $100K (도로 한 칸)
+  const won = c => (c >= 1000 ? '$' + (c / 1000) + 'M' : c ? '$' + c + 'K' : '$0');   // 돈: 내부값 100 = $100K (도로 한 칸)
 
   /* 목표는 스테이지마다 다르다(js/stages.js). 앞 단계를 달성해야 다음 별을 받는다. */
   let ST = STAGES[0], GOALS = ST.goals, TARGET = ST.target, stageIdx = 0;

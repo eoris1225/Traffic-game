@@ -7,7 +7,7 @@
 (function (root) {
   'use strict';
   const sec = m => m.perCapita.toFixed(1) + '초';
-  const won = c => (c >= 1000 ? '$' + (c / 1000) + 'M' : '$' + c + 'K');
+  const won = c => (c >= 1000 ? '$' + (c / 1000) + 'M' : c ? '$' + c + 'K' : '$0');
   const arrivedAll = m => m.total > 0 && m.arrived >= m.total * 0.95;
 
   const STAGES = [
