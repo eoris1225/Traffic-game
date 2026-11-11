@@ -5,8 +5,9 @@
   'use strict';
   const F = root.FlowSim, W = F.W, H = F.H, DX = F.DX, DY = F.DY;
   const DECK = 0.5, TUN = -0.35;
-  const CARCOL = { normal: 0x4d9bff, speeder: 0xff4d5e, novice: 0xffd23f, bus: 0x2fd39a };
-  const TERMCOL = { home: 0x5aa9ff, factory: 0xb58bff, office: 0xffa63d, port: 0x36d6c0 };
+  const CARCOL = { normal: 0x4a86d9, speeder: 0xe5483f, novice: 0xffc928, bus: 0x1f9d6b };
+  const NORMAL_VARIANTS = [0x4a86d9, 0xf6f3ea, 0x3fa7b5, 0x7c8296, 0x5b6fc7];
+  const TERMCOL = { home: 0x4a86d9, factory: 0x8a6fd1, office: 0xf2a93b, port: 0x2fa89a };
 
   function create(wrap) {
     const THREE = root.THREE;
@@ -19,7 +20,7 @@
     renderer.setClearColor(0x000000, 0);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0xc9e3e6, 22, 46);
+    scene.fog = new THREE.Fog(0xcfe3e4, 24, 48);
     const camera = new THREE.PerspectiveCamera(30, 1.5, 0.1, 200);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 0.66));
     const sun = new THREE.DirectionalLight(0xfff1d6, 0.9);
@@ -32,14 +33,14 @@
     const M = (color, opt) => new THREE.MeshLambertMaterial(Object.assign({ color, flatShading: true }, opt || {}));
     // 배경(지형·나무·물)용 재질: 설계 모드에서는 흑백, 실행하면 컬러로 서서히 바뀐다
     const decor = [];
-    const D = (color, opt) => {
+    const D = (color, opt, gray) => {
       const m = M(color, opt), c = new THREE.Color(color), l = .3 * c.r + .59 * c.g + .11 * c.b;
-      decor.push({ m, c, g: new THREE.Color(l * .5 + .2, l * .5 + .2, l * .5 + .225) }); return m;
+      decor.push({ m, c, g: gray !== undefined ? new THREE.Color(gray) : new THREE.Color(l * .5 + .2, l * .5 + .2, l * .5 + .225) }); return m;
     };
     const mats = {
-      soil: D(0x9a7350, { side: THREE.DoubleSide }), water: D(0x4f93c9, { transparent: true, opacity: 0.94 }),
-      rock: D(0x8f958f), rock2: D(0x767c78), snow: D(0xf4f7fb), trunk: D(0x8a5a3a), leaf: D(0x4f9f5a), leaf2: D(0x3f8a55), leaf3: D(0x69b565),
-      grassA: D(0x74b45e), grassB: D(0x7dbd66), rockBg: D(0xcfc9a8), parkBg: D(0x74b360), sheep: D(0xf3f1ea),
+      soil: D(0xb08c62, { side: THREE.DoubleSide }), water: D(0x6fb4cf, { transparent: true, opacity: 0.95 }, 0x6f737d),
+      rock: D(0x8f958f), rock2: D(0x767c78), snow: D(0xf4f7fb), trunk: D(0x8a5a3a), leaf: D(0x4c8f56), leaf2: D(0x3d7c52), leaf3: D(0x6aa35b),
+      grassA: D(0x80b56b), grassB: D(0x85b96f), soil2: D(0x7a5b40, { side: THREE.DoubleSide }), rockBg: D(0xd8cfae), parkBg: D(0x7fae5c), sheep: D(0xf3f1ea),
       dark: M(0x2b2f3a), glass: M(0x1d2433), white: M(0xf3f1ea), pole: M(0x5b6170), beam: M(0xf2b233), beam2: M(0xd9544a),
       deck: M(0x4b4f5e), orange: M(0xff8a2a), yellow: M(0xffd23f), concrete: M(0xc9c4b6), wall: M(0xe8dfcf), roofR: M(0xd9604a), roofB: M(0x4a7fd9),
       metal: M(0x9aa3b5), red: M(0xe0453f)
@@ -54,11 +55,11 @@
     let heat = [], signals = [], peds = [], camSweeps = [];
     const cars = new Map(), fx = new Map();
     let tilesRef = null, graphRef = null;
-    const VIEWS = { top: { yaw: 0, pitch: 1.5, tz: H / 2 + .25 }, iso: { yaw: -0.24, pitch: 0.9, tz: H / 2 + 0.75 } };
+    const VIEWS = { top: { yaw: 0, pitch: 1.5, tz: H / 2 + .45 }, iso: { yaw: -0.24, pitch: 0.9, tz: H / 2 + 1.1 } };
     const cam = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35, touched: false, mode: 'iso' };
     const tgt = { yaw: -0.24, pitch: 0.9, dist: 18.5, tz: H / 2 + 0.35 };
     let vw = 1, vh = 1, amt = 1, tAmt = 1, lastNow = 0, hover = null;
-    function fitDist(mode) { const a = vw / vh; return mode === 'top' ? Math.max(20.5, 26 / a) : Math.max(20, 27 / a); }
+    function fitDist(mode) { const a = vw / vh; return mode === 'top' ? Math.max(22, 26 / a) : Math.max(20, 27 / a); }
     function setView(mode, instant) {
       cam.mode = mode; cam.touched = false;
       const v = VIEWS[mode]; tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tz = v.tz; tgt.dist = fitDist(mode);
@@ -87,14 +88,18 @@
       mesh(G.cone6, lm, x, .32 * s, z, .17 * s, .36 * s, .17 * s, parent);
       mesh(G.cone6, lm, x, .5 * s, z, .12 * s, .3 * s, .12 * s, parent);
     }
-    function label(text, color, x, y, z) {
-      const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+    function label(text, color, x, y, z) {                    // 도로 표지판 모양 이름표
+      const c = document.createElement('canvas'); c.width = 256; c.height = 112;
       const g = c.getContext('2d');
-      g.fillStyle = 'rgba(12,18,40,.9)'; g.beginPath(); g.roundRect ? g.roundRect(8, 8, 112, 48, 14) : g.rect(8, 8, 112, 48); g.fill();
-      g.strokeStyle = color; g.lineWidth = 5; g.stroke();
-      g.fillStyle = color; g.font = '800 34px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 64, 34);
+      const rrp = (x0, y0, w, h, r) => { g.beginPath(); g.moveTo(x0 + r, y0); g.arcTo(x0 + w, y0, x0 + w, y0 + h, r); g.arcTo(x0 + w, y0 + h, x0, y0 + h, r); g.arcTo(x0, y0 + h, x0, y0, r); g.arcTo(x0, y0, x0 + w, y0, r); g.closePath(); };
+      g.font = '900 54px "Wanted Sans",sans-serif';
+      const w = Math.min(240, g.measureText(text).width + 56), x0 = (256 - w) / 2;
+      g.fillStyle = '#1c1f27'; rrp(x0, 14, w, 88, 18); g.fill();
+      g.fillStyle = color; rrp(x0, 6, w, 88, 18); g.fill();
+      g.strokeStyle = '#fff'; g.lineWidth = 5; rrp(x0 + 8, 14, w - 16, 72, 12); g.stroke();
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 53);
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
-      sp.position.set(x, y, z); sp.scale.set(.8, .4, 1); sp.renderOrder = 10; world.add(sp);
+      sp.position.set(x, y, z); sp.scale.set(1.05, .46, 1); sp.renderOrder = 10; world.add(sp);
     }
     function building(t, x, z) {
       const kind = t.term.kind, col = TERMCOL[kind], cm = M(col);
@@ -123,7 +128,7 @@
         mesh(G.box, cm, cx + .27, .4, cz - .2, .06, .8, .06); mesh(G.box, cm, cx + .1, .78, cz - .2, .5, .05, .06);
         mesh(G.box, mats.dark, cx - .08, .68, cz - .2, .02, .16, .02);
       }
-      label(t.term.id, '#' + col.toString(16).padStart(6, '0'), cx, kind === 'office' ? 1.5 : 1.05, cz);
+      label(t.term.name, kind === 'home' || kind === 'factory' ? '#1d5fbf' : '#0f7a55', cx, kind === 'office' ? 1.55 : 1.1, cz);
     }
     function beam(x1, y1, z1, x2, y2, z2, th, mat) {
       const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, len = Math.hypot(dx, dy, dz);
@@ -160,7 +165,7 @@
       root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: opt && opt.edit ? 'edit' : 'tex', theme: 'poly', groundOnly: true, now: 0 });
       if (tex) tex.dispose();
       tex = new THREE.CanvasTexture(tc); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [] }, side = [];
+      const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [] }, side = [], side2 = [];
       const isLand = (x, y) => x >= 0 && y >= 0 && x < W && y < H && tiles[y * W + x].base !== 'water';
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const t = tiles[y * W + x];
@@ -168,8 +173,9 @@
         quads[t.base === 'rock' ? 'rockBg' : t.base === 'park' ? 'parkBg' : (x + y) % 2 ? 'grassA' : 'grassB'].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
         for (let d = 0; d < 4; d++) {
           if (isLand(x + DX[d], y + DY[d])) continue;
-          const c = [[x, y, x + 1, y], [x + 1, y, x + 1, y + 1], [x + 1, y + 1, x, y + 1], [x, y + 1, x, y]][d], b = -.6;
-          side.push(c[0], 0, c[1], c[2], 0, c[3], c[2], b, c[3], c[0], 0, c[1], c[2], b, c[3], c[0], b, c[1]);
+          const c = [[x, y, x + 1, y], [x + 1, y, x + 1, y + 1], [x + 1, y + 1, x, y + 1], [x, y + 1, x, y]][d];
+          const band = (arr, t, b) => arr.push(c[0], t, c[1], c[2], t, c[3], c[2], b, c[3], c[0], t, c[1], c[2], b, c[3], c[0], b, c[1]);
+          band(side, 0, -.2); band(side2, -.2, -.7);
         }
       }
       for (const k in quads) {
@@ -180,6 +186,8 @@
       const g2 = new THREE.BufferGeometry();
       g2.setAttribute('position', new THREE.Float32BufferAttribute(side, 3)); g2.computeVertexNormals();
       world.add(new THREE.Mesh(g2, mats.soil));
+      const g3 = new THREE.BufferGeometry(); g3.setAttribute('position', new THREE.Float32BufferAttribute(side2, 3)); g3.computeVertexNormals();
+      world.add(new THREE.Mesh(g3, mats.soil2));
       // 도로·노면 표시 레이어(투명 배경 텍스처)
       const rg = new THREE.PlaneGeometry(W, H); rg.rotateX(-Math.PI / 2);
       const roads = new THREE.Mesh(rg, new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false }));
@@ -189,7 +197,7 @@
       hoverMesh.position.y = .03; hoverMesh.visible = false; hoverMesh.renderOrder = 5; world.add(hoverMesh);
 
       // 물: 삼각형 면이 살아 있는 로우폴리 수면
-      const wg = new THREE.PlaneGeometry(W + 7, H + 7, 22, 18).toNonIndexed(); wg.rotateX(-Math.PI / 2);
+      const wg = new THREE.PlaneGeometry(W + 44, H + 44, 44, 40).toNonIndexed(); wg.rotateX(-Math.PI / 2);
       water = new THREE.Mesh(wg, mats.water); water.position.set(W / 2, -.24, H / 2); water.receiveShadow = true; world.add(water);
       waterBase = Float32Array.from(wg.attributes.position.array);
 
@@ -291,7 +299,8 @@
     }
 
     function carMesh(c) {
-      const g = new THREE.Group(), col = CARCOL[c.type], bm = M(col), L = c.len;
+      const g = new THREE.Group(), col = c.type === 'normal' ? NORMAL_VARIANTS[c.id % NORMAL_VARIANTS.length] : CARCOL[c.type], bm = M(col), L = c.len;
+      g.scale.setScalar(1.18);
       if (c.type === 'bus') {
         mesh(G.box, bm, 0, .1, 0, L, .13, .15, g); mesh(G.box, mats.glass, 0, .125, 0, L * .9, .045, .155, g); mesh(G.box, mats.white, 0, .17, 0, L * .96, .02, .14, g);
       } else {
@@ -314,7 +323,7 @@
       g.userData.core = core; g.userData.inner = inner; world.add(g); return g;
     }
 
-    const cA = new THREE.Color(), sunDay = new THREE.Color(0xfff1d6), sunEve = new THREE.Color(0xffb27a);
+    const cA = new THREE.Color(), sunDay = new THREE.Color(0xfff1d6), sunEve = new THREE.Color(0xffd0a3);
     function applyCam(now) {
       const dt = Math.min(.1, Math.max(0, (now - lastNow) / 1000)); lastNow = now;
       const k = 1 - Math.exp(-dt * 4.5);

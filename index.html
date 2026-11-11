@@ -9,13 +9,13 @@
 <body>
 <div id="app">
   <header>
-    <div class="brand"><span class="logo">◈</span><h1>FLOW LAB</h1></div>
+    <div class="brand"><span class="mark"><i></i><i></i><i></i></span><h1>FLOW<b>LAB</b></h1></div>
     <nav id="stages">
-      <button class="stage active"><b>1</b> 도심 지름길의 역설</button>
-      <button class="stage locked" disabled><b>2</b> 강변 순환로 <i>🔒</i></button>
-      <button class="stage locked" disabled><b>3</b> 입체 교차로 <i>🔒</i></button>
-      <button class="stage locked" disabled><b>4</b> 산악 물류망 <i>🔒</i></button>
-      <button class="stage locked" disabled><b>5</b> 항만 대순환 <i>🔒</i></button>
+      <button class="stage active"><span class="no">1</span>도심 지름길의 역설</button>
+      <button class="stage locked" disabled><span class="no">2</span>강변 순환로<i data-ic="lock"></i></button>
+      <button class="stage locked" disabled><span class="no">3</span>입체 교차로<i data-ic="lock"></i></button>
+      <button class="stage locked" disabled><span class="no">4</span>산악 물류망<i data-ic="lock"></i></button>
+      <button class="stage locked" disabled><span class="no">5</span>항만 대순환<i data-ic="lock"></i></button>
     </nav>
   </header>
 
@@ -24,44 +24,55 @@
 
     <div id="topbar">
       <div class="side">
-        <button id="btnHelp" class="ic" title="게임 방법">?</button>
-        <button id="btnStats" class="txt" title="자세한 수치·그래프·실험 기록">📊 수치 확인</button>
-        <button id="btnBefore" class="txt" title="고치기 전 도로 상황 다시 보기">⏮ 처음 상태</button>
+        <button id="btnHelp" class="key sq" title="게임 방법"><i data-ic="help"></i></button>
+        <button id="btnStats" class="key" title="자세한 수치·그래프·실험 기록"><i data-ic="chart"></i>수치 확인</button>
+        <button id="btnBefore" class="key" title="고치기 전 도로 상황 다시 보기"><i data-ic="rewind"></i>처음 상태</button>
       </div>
-      <div id="budgetBig"><b id="budBig">$0</b><small>예산 $3,500</small></div>
+      <div id="budget" title="사용한 예산 / 총예산"><span class="cap">예산</span><b id="budBig">$0</b><span class="of">/ $3,500</span></div>
       <div class="side right">
-        <button id="btnUndo" class="ic" title="되돌리기 (Ctrl+Z)">↶</button>
-        <button id="btnReset" class="ic" title="처음 도로로 되돌리기">🗑</button>
-        <button id="btnSpeed" class="txt" title="재생 속도">×2</button>
-        <button id="btnSkip" class="ic" title="결과 바로 보기">⏭</button>
-        <button id="btnPlay" class="play" title="실행 / 정지 (Space)">▶</button>
+        <button id="btnUndo" class="key sq" title="되돌리기 (Ctrl+Z)"><i data-ic="undo"></i></button>
+        <button id="btnReset" class="key sq" title="처음 도로로 되돌리기"><i data-ic="trash"></i></button>
+        <button id="btnSpeed" class="key num" title="재생 속도">×2</button>
+        <button id="btnSkip" class="key sq" title="결과 바로 보기"><i data-ic="skip"></i></button>
+        <button id="btnPlay" class="play" title="실행 / 정지 (Space)"><i data-ic="play"></i></button>
       </div>
     </div>
 
-    <div id="banner" class="hidden"><span id="bannerTxt"></span><button id="bannerBtn" class="go">✏️ 도로 고치기</button></div>
+    <div id="banner" class="plate hidden"><span id="bannerTxt"></span><button id="bannerBtn" class="cta">도로 고치기</button></div>
 
     <div id="hud">
-      <div class="chip mood" id="chipMood"><span id="moodIc">😀</span><b id="moodTxt">원활</b></div>
-      <div class="chip" id="chipTime" title="한 사람이 목적지까지 가는 데 걸리는 평균 시간">⏱ <b id="hudTime">–</b><small>목표 <span id="hudGoal">24</span>초</small></div>
-      <div class="chip" id="chipAcc" title="사고 건수">💥 <b id="hudAcc">0</b><small>허용 1건</small></div>
-      <div class="chip" id="chipArr" title="도착한 차량">🚗 <b id="hudArr">0</b></div>
-      <div class="chip day" title="하루 진행"><span>☀️</span><div id="dayBar"><div id="dayFill"></div></div><span>🌙</span></div>
+      <div class="plate mood" id="chipMood" title="지금 도로 흐름">
+        <span class="lamps"><i class="g"></i><i class="y"></i><i class="r"></i></span><b id="moodTxt">원활</b>
+      </div>
+      <div class="plate stat" id="chipTime" title="한 사람이 목적지까지 가는 데 걸리는 평균 시간">
+        <span class="cap">평균 이동시간</span>
+        <span class="val"><b id="hudTime">–</b><em>초</em></span>
+        <span class="goalbar"><i id="goalFill"></i><u></u></span>
+        <span class="sub">목표 <span id="hudGoal">24</span>초 이하</span>
+      </div>
+      <div class="plate stat" id="chipAcc" title="사고 건수">
+        <span class="cap">사고</span><span class="val"><b id="hudAcc">0</b><em>건</em></span><span class="sub">1건까지 허용</span>
+      </div>
+      <div class="plate stat" id="chipArr" title="도착한 차량">
+        <span class="cap">도착</span><span class="val"><b id="hudArr">0</b><em id="hudTot">/0</em></span>
+        <span class="day"><i data-ic="sun"></i><span id="dayBar"><i id="dayFill"></i></span><i data-ic="moon"></i></span>
+      </div>
     </div>
-    <div id="forecast" class="hidden"></div>
+    <div id="forecast" class="plate hidden"></div>
 
     <div id="toolbar"></div>
-    <div id="tip"></div>
+    <div id="tip" class="plate"></div>
     <div id="toast"></div>
 
     <div id="result" class="hidden">
       <div class="card">
-        <div id="resTitle"></div>
+        <div id="resSign"></div>
         <div id="resStars"></div>
         <div id="resBody"></div>
         <div class="resBtns">
-          <button id="resEdit" class="go">✏️ 도로 고치기</button>
-          <button id="resStats">📊 수치 확인</button>
-          <button id="resClose">닫기</button>
+          <button id="resEdit" class="cta">도로 고치기</button>
+          <button id="resStats" class="key light"><i data-ic="chart"></i>수치 확인</button>
+          <button id="resClose" class="key light">닫기</button>
         </div>
       </div>
     </div>
@@ -71,10 +82,10 @@
 <!-- 수치 확인: 그래프·실험 기록·모델 설명은 전부 여기로 -->
 <div id="stats" class="modal hidden">
   <div class="sheet">
-    <div class="sheetHead"><h2>📊 수치 확인</h2><button id="statsClose" class="ic">✕</button></div>
+    <div class="sheetHead"><h2>수치 확인</h2><button id="statsClose" class="key light sq"><i data-ic="close"></i></button></div>
     <div class="grid">
       <section>
-        <h3>인당 평균 이동시간 <small>T̄ = Σ Wᵢ·tᵢ / Σ Wᵢ (버스 W=20)</small></h3>
+        <h3>인당 평균 이동시간 <small>T̄ = Σ Wᵢ·tᵢ / Σ Wᵢ · 버스 W=20</small></h3>
         <div class="compare">
           <div class="cmp before"><span>고치기 전</span><b id="vBefore">–</b><small id="aBefore"></small></div>
           <div class="cmp arrow"><b id="vDelta">–</b><small id="vDeltaPct"></small></div>
@@ -84,7 +95,7 @@
         <div class="legend"><i class="l1"></i>고치기 전 <i class="l2"></i>최근 실행 <i class="l3"></i>목표선 <i class="l4"></i>사고</div>
       </section>
       <section>
-        <h3>실험 기록 <small>예산 대비 효과 (파레토 전선)</small> <button id="btnClearHist" class="mini">지우기</button></h3>
+        <h3>실험 기록 <small>예산 대비 효과 · 파레토 전선</small> <button id="btnClearHist" class="key light mini">지우기</button></h3>
         <canvas id="pareto" width="680" height="220"></canvas>
         <div id="hist"></div>
       </section>
@@ -93,19 +104,19 @@
         <div class="kv"><span>운전자 구성</span><div><div id="mixBar" class="mix"></div><div id="mixLegend" class="mixLegend"></div></div></div>
         <div class="kv"><span>상충점 지수</span><div id="conf"></div></div>
         <div class="kv"><span>사용 예산</span><div id="statBudget"></div></div>
-        <h3 style="margin-top:14px">예시 설계 불러오기</h3>
+        <h3 class="gap">예시 설계 불러오기</h3>
         <div class="presets">
-          <button data-preset="0">① 지름길 폐쇄 <em>$100</em></button>
-          <button data-preset="1">② 버스 전용 지름길 + 육교 <em>$1,100</em></button>
-          <button data-preset="2">③ 회전교차로 + 육교 <em>$1,800</em></button>
+          <button class="key light" data-preset="0">지름길 폐쇄 <em>$100</em></button>
+          <button class="key light" data-preset="1">버스 전용 지름길 + 육교 <em>$1,100</em></button>
+          <button class="key light" data-preset="2">회전교차로 + 육교 <em>$1,800</em></button>
         </div>
       </section>
       <section class="formulas">
         <h3>게임 안에서 돌아가는 모델</h3>
-        <div class="f"><b>길 찾기</b><code>A* · 비용 t = t₀·(1 + α·(v/c)<sup>β</sup>), α=0.15, β=4</code><span>막히는 길일수록 비용이 커져 차량이 스스로 우회 (BPR 함수)</span></div>
+        <div class="f"><b>길 찾기</b><code>A* · t = t₀·(1 + α·(v/c)<sup>β</sup>), α=0.15, β=4</code><span>막히는 길일수록 비용이 커져 차량이 스스로 우회 (BPR 함수)</span></div>
         <div class="f"><b>앞차 따라가기</b><code>v* = v<sub>max</sub>·max(0, (Δx − d<sub>min</sub>)/d<sub>safe</sub>)</code><span>운전자마다 (v₀, T, a, b) 가 정규분포로 다름 (IDM 단순화)</span></div>
         <div class="f"><b>사고</b><code>TTC = Δx / (v<sub>뒤</sub> − v<sub>앞</sub>)</code><span>차체가 실제로 겹치면 사고 · 10초간 그 칸 통행 불가</span></div>
-        <div class="f"><b>지름길의 역설</b><code>브라에스 역설 (Braess, 1968)</code><span>모두가 가장 짧은 길을 고르면 병목 두 곳에 전부 몰려 전체가 느려짐</span></div>
+        <div class="f"><b>지름길의 역설</b><code>Braess's paradox (1968)</code><span>모두가 가장 짧은 길을 고르면 병목 두 곳에 전부 몰려 전체가 느려짐</span></div>
       </section>
     </div>
   </div>
@@ -113,15 +124,16 @@
 
 <div id="help" class="modal hidden">
   <div class="sheet small">
-    <div class="sheetHead"><h2>게임 방법</h2><button id="helpClose" class="ic">✕</button></div>
+    <div class="sheetHead"><h2>게임 방법</h2><button id="helpClose" class="key light sq"><i data-ic="close"></i></button></div>
     <ol class="how">
-      <li><b>관찰</b> — 지금 도로에서 어디가 막히고 어디서 사고가 나는지 지켜보세요. 도로가 붉게 물들수록 심하게 막힌 곳입니다.</li>
-      <li><b>고치기</b> — 아래 도구를 골라 칸을 클릭하세요. 같은 도구로 다시 누르면 회수(전액 환불)됩니다. 예산은 $3,500.</li>
-      <li><b>실행 ▶</b> — 같은 차량들이 다시 달립니다. 평균 이동시간 24초 이하, 사고 1건 이하면 성공!</li>
+      <li><b>관찰</b>지금 도로에서 어디가 막히는지 지켜보세요. 도로가 붉게 물들수록 심하게 막힌 곳입니다.</li>
+      <li><b>고치기</b>아래 도구를 골라 칸을 누르세요. 같은 도구로 다시 누르면 전액 환불로 회수됩니다.</li>
+      <li><b>실행</b>같은 차량들이 다시 달립니다. 평균 이동시간 24초 이하, 사고 1건 이하면 성공.</li>
     </ol>
-    <p class="hint">말풍선: ❓ 초보 운전자가 머뭇거림 · ❗ 급정거 · 💢 오래 갇힘 · 📸 카메라에 걸려 감속<br>
-    실행 중 화면을 드래그하면 시점이 돌아가고, 차량을 누르면 어디로 가는지 보여 줍니다.<br>
-    힌트: 길을 <u>늘리는</u> 것만이 답은 아닙니다.</p>
+    <div class="legendRow">
+      <span><i class="bub q">?</i>초보가 머뭇거림</span><span><i class="bub bang">!</i>급정거</span><span><i class="bub stuck">···</i>오래 갇힘</span><span><i class="bub cam"></i>단속에 걸려 감속</span>
+    </div>
+    <p class="hint">실행 중 화면을 끌면 시점이 돌아가고, 차량을 누르면 어디로 가는지 보여 줍니다.<br>길을 <b>늘리는</b> 것만이 답은 아닙니다.</p>
   </div>
 </div>
 

@@ -49,10 +49,10 @@
     '.......4~...'
   ];
   const TERMS = {
-    '1': { id: 'S1', kind: 'home', name: '주거단지' },
-    '2': { id: 'S2', kind: 'factory', name: '산업단지' },
-    '3': { id: 'E1', kind: 'office', name: '오피스' },
-    '4': { id: 'E2', kind: 'port', name: '물류항' }
+    '1': { id: 'S1', kind: 'home', name: '주택가' },
+    '2': { id: 'S2', kind: 'factory', name: '공장' },
+    '3': { id: 'E1', kind: 'office', name: '회사' },
+    '4': { id: 'E2', kind: 'port', name: '항구' }
   };
 
   /* 수요(대/초): 전반부 = 출근(서→동), 후반부 = 퇴근(동→서) */
