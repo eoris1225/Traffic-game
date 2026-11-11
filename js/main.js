@@ -4,7 +4,7 @@
   'use strict';
   const F = window.FlowSim, R = window.FlowRender, W = F.W, H = F.H;
   const $ = id => document.getElementById(id);
-  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.stage1.v4';
+  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.stage1.v5';
 
   /* 목표: 앞 단계를 달성해야 다음 별을 받는다. 뒤로 갈수록 어렵다. */
   const PURPLE_BUDGET = 1200;
