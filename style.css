@@ -297,7 +297,7 @@ body.pre #topbar,body.pre #hud,body.pre #caption,body.pre #tray,body.pre #toolIn
   header{display:none}
   #stageWrap{border-radius:0}
   .grid{grid-template-columns:1fr}
-  #btnBefore,#btnSkip{display:none}
+  #btnBefore{display:none}
   .ib{width:34px;height:36px}
   .stars{margin-left:2px;padding:4px}.stars svg{width:14px;height:14px}
   #budget{padding:4px 10px 5px}#budget b{font-size:18px}#budget .of{display:none}
@@ -401,3 +401,20 @@ button.stCard:hover{transform:translateY(-2px)}
 #guideList button.new::after{content:"";position:absolute;right:10px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--yellow)}
 #title:not(.hidden) ~ #guideBtn,body.pre #guideBtn{display:none}
 @media (max-width:560px){#guideBtn{width:40px;height:40px;right:6px}#guide{right:6px;width:190px}#guide.open{transform:translate(-48px,-50%)}}
+
+/* --- 튜토리얼: 말풍선이 눌러야 할 칸을 가리지 않게, 옆의 ? 는 소개할 때만 --- */
+body.tutoring:not(.tut-guide) #guideBtn,body.tutoring #guide{display:none}
+body.tutoring #caption{display:none}
+#tut.tight.dock-top #tutPip{top:62px}
+#tut.tight.dock-top #tutBubble{top:72px}
+#tut.tight:not(.dock-top) #tutPip{bottom:74px}
+#tut.tight:not(.dock-top) #tutBubble{bottom:92px}
+@media (max-width:760px){
+  #tut.tight #tutPip{width:78px;left:2px}
+  #tut.tight #tutBubble{left:74px;width:calc(100% - 82px);padding:8px 12px 9px}
+  #tut.tight #tutBubble p{font-size:13px;line-height:1.45;margin-top:2px}
+  #tut.tight #tutBubble b{font-size:11px}
+  #tut.tight.dock-top #tutPip{top:58px}#tut.tight.dock-top #tutBubble{top:64px}
+  #tut.tight:not(.dock-top) #tutPip{bottom:70px}#tut.tight:not(.dock-top) #tutBubble{bottom:78px}
+}
+#tut.dock-top #tutSkip{top:auto;bottom:92px}

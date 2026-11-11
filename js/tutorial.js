@@ -31,12 +31,12 @@
     { pose: 'think', spot: { cells: ROUTE }, free: true, text: T.draw, wait: () => L.connected() || L.mode !== 'edit' },
     { pose: 'found', spot: () => $('btnPlay'), text: T.run, wait: () => L.mode === 'run' || resultUp() },
     { pose: 'point', spot: () => $('hud'), text: T.hud },
-    { pose: 'talk', spot: () => $('btnSkip'), text: T.wait, wait: resultUp },
+    { pose: 'talk', spot: () => [$('btnSpeed'), $('btnSkip')], text: T.wait, wait: resultUp },
     { pose: 'cheer', spot: () => document.querySelector('#result .card'), text: T.result },
-    { pose: 'talk', spot: () => $('guideBtn'), text: T.help, enter: () => $('result').classList.add('hidden') },
+    { pose: 'talk', guide: true, spot: () => $('guideBtn'), text: T.help, enter: () => $('result').classList.add('hidden') },
     { pose: 'cheer', text: T.bye }
   ];
-  let seq = STEPS;
+  let seq = STEPS, markBox = null;
 
   const tut = $('tut'), txt = $('tutText'), mark = $('tutMark'), poly = mark.querySelector('polygon'), spot = $('tutSpot');
   let idx = -1, step = null, segs = [], shownN = 0, typeT = 0, autoT = 0, running = false, hole = null;
@@ -54,6 +54,7 @@
     idx = k; step = seq[k];
     if (!step) return seq === STEPS ? finale() : end(false);
     if (step.enter) step.enter();
+    body.classList.add('tutoring'); body.classList.toggle('tut-guide', !!step.guide);   // 튜토리얼 중에는 옆의 ? 를 숨긴다(그 버튼을 소개할 때만 보인다)
     $('toolInfo').classList.add('hidden');                      // 도구 설명 창이 핍의 말풍선과 겹치지 않게
     tut.className = 'at-' + (step.at || 'talk') + (step.wait ? ' waiting' : '') + (step.auto ? ' auto' : '');
     face($('tutPip'), step.pose);
@@ -69,7 +70,7 @@
   }
   function end(finished) {
     running = false; step = null; hole = null; clearTimeout(typeT); clearTimeout(autoT);
-    tut.className = 'hidden'; mark.style.display = 'none'; spot.style.display = 'none'; $('tutEnd').classList.add('hidden'); body.classList.remove('pre');
+    tut.className = 'hidden'; mark.style.display = 'none'; spot.style.display = 'none'; $('tutEnd').classList.add('hidden'); body.classList.remove('pre'); body.classList.remove('tutoring', 'tut-guide');
     if (finished) setDone();
   }
   /* 마무리: 인수인계서에 도장이 찍히고, "업무 시작" 으로 설계 화면에 내려 준다 */
@@ -109,8 +110,10 @@
       for (const [x, y] of todo) {
         const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(p => V3.project(p[0], p[1], .02));
         html += '<polygon points="' + c.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"/>';
+        for (const q of c) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }
       }
       mark.innerHTML = html; mark.style.display = todo.length ? 'block' : 'none';
+      markBox = todo.length ? [x0, y0, x1 - x0, y1 - y0] : null;
       return null;                                               // 어둡게 가리지 않는다(지도 전체를 쓸 수 있게)
     }
     if (Array.isArray(target) && typeof target[0] === 'number') {
@@ -133,12 +136,14 @@
     if (running && step) {
       if (step.wait && step.wait()) next();
       if (step) {
-        mark.style.display = 'none';
+        mark.style.display = 'none'; markBox = null;
         hole = step.spot ? rectOf(typeof step.spot === 'function' ? step.spot() : step.spot) : null;
-        if (hole) {
-          spot.style.display = 'block'; spot.style.left = hole[0] + 'px'; spot.style.top = hole[1] + 'px'; spot.style.width = hole[2] + 'px'; spot.style.height = hole[3] + 'px';
-          tut.classList.toggle('dock-top', hole[1] > wrap.clientHeight - hole[1] - hole[3]);   // 빈 자리가 넓은 쪽에 선다
-        } else { spot.style.display = 'none'; tut.classList.remove('dock-top'); }
+        if (hole) { spot.style.display = 'block'; spot.style.left = hole[0] + 'px'; spot.style.top = hole[1] + 'px'; spot.style.width = hole[2] + 'px'; spot.style.height = hole[3] + 'px'; }
+        else spot.style.display = 'none';
+        // 말풍선은 가리켜야 할 곳을 덮지 않게, 위아래 중 빈 자리가 넓은 쪽에 선다
+        const box = hole || markBox, onMap = !!markBox || (Array.isArray(step.spot) && typeof step.spot[0] === 'number');
+        if (box) tut.classList.toggle('dock-top', box[1] - 60 > wrap.clientHeight - 90 - box[1] - box[3]); else tut.classList.remove('dock-top');
+        tut.classList.toggle('tight', onMap);
       }
     }
     requestAnimationFrame(loop);
