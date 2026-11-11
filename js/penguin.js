@@ -14,6 +14,8 @@
     point:  { yaw: .75, L: [1.5, .1], R: [.15, 0], look: 0, beak: .15, tilt: .05 },
     worry:  { yaw: .45, L: [1.25, .2], R: [1.25, .2], look: .1, beak: .4, sweat: true },
     cheer:  { yaw: .5, L: [2.35, 0], R: [2.35, 0], look: .3, beak: .45, hop: .1 },
+    teach:  { yaw: .5, L: [.15, 0], R: [2.2, .1], look: .1, beak: .25, tilt: .04, stick: true },
+    teach2: { yaw: .35, L: [.5, .3], R: [1.75, .2], look: .05, beak: .4, stick: true },
     think:  { yaw: -.55, L: [.15, 0], R: [.2, 0], look: .2, beak: 0, tilt: -.1 }
   };
 
@@ -79,6 +81,10 @@
       add(oct, m.white, s * .008, -.41, .014, .045, .36, .11, sh).rotation.y = s * .95;                          // 날개 안쪽 흰 면
     };
     wing(-1, P.L); wing(1, P.R);
+    if (P.stick) {                                                                                            // 발표봉: 오른쪽 날개 끝에 쥐고 있다
+      const sh = g.children[g.children.length - 1];
+      add(box, M(0x8b6a4c), .04, -1.16, .02, .035, .86, .035, sh); add(box, M(0xe5483f), .04, -1.62, .02, .05, .1, .05, sh);
+    }
     g.rotation.order = 'YXZ'; g.rotation.y = P.yaw || 0; g.rotation.z = P.tilt || 0; g.rotation.x = P.lean || 0; g.position.y = P.hop || 0;
     return g;
   }

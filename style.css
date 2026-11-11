@@ -8,7 +8,7 @@
   --font:"Wanted Sans","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--ink);color:var(--cream);font-family:var(--font);font-size:13px;font-weight:500;letter-spacing:-.01em;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ink);color:var(--cream);font-family:var(--font);font-size:13px;font-weight:500;letter-spacing:-.01em;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
 .hidden{display:none!important}
 svg{display:block}
@@ -30,7 +30,7 @@ header{display:flex;align-items:center;gap:26px;padding:0 4px}
 .stage.active b{color:var(--yellow)}
 .stage i[data-ic]{width:12px;height:12px}
 
-#stageWrap{position:relative;flex:1;min-height:0;border-radius:12px;overflow:hidden;background:#cfe3e4;user-select:none;-webkit-user-select:none}
+#stageWrap{position:relative;flex:1;min-height:0;border-radius:12px;overflow:hidden;overflow:clip;background:#cfe3e4;user-select:none;-webkit-user-select:none}
 #stageWrap.is-edit{background:#8d9099}
 #map3d{position:absolute;left:0;top:0;z-index:0}
 #map{position:absolute;left:0;top:0;z-index:1;cursor:crosshair;touch-action:none}
@@ -235,12 +235,43 @@ body.pre #topbar,body.pre #hud,body.pre #caption,body.pre #tray,body.pre #toolIn
 #tut.dock-top #tutPip{bottom:auto;top:100px}
 #tut.dock-top #tutBubble{bottom:auto;top:128px}
 /* 대사 속의 실제 버튼 그림 */
-.kb{display:inline-flex;align-items:center;justify-content:center;vertical-align:-7px;width:28px;height:28px;margin:0 2px;border-radius:7px;background:var(--asphalt2);color:var(--cream);box-shadow:0 2px 0 var(--ink);font-size:13px;font-weight:900;font-style:normal}
-.kb svg{width:17px;height:17px}
+.kb{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;position:relative;top:-.08em;width:1.72em;height:1.72em;margin:-.3em .14em;border-radius:.42em;background:var(--asphalt2);color:var(--cream);box-shadow:0 2px 0 var(--ink);font-size:inherit;font-weight:900;font-style:normal;line-height:1}
+.kb svg{width:62%;height:62%}
+.kb:not(.tool):not(.play):not(.star){font-size:.82em;width:2.1em;height:2.1em}
 .kb.play{background:var(--green2);color:#fff;box-shadow:0 2px 0 #0a5a3e}
-.kb.tool{background:#fff;box-shadow:0 0 0 2px var(--ink),0 3px 0 var(--ink)}.kb.tool svg{width:21px;height:21px}
-.kb.star{background:none;box-shadow:none;color:var(--yellow);width:22px}.kb.star svg{width:20px;height:20px}
-#tutText .bub{display:inline-grid;vertical-align:-6px;margin:0 2px}
+.kb.tool{background:#fff;box-shadow:0 0 0 2px var(--ink),0 3px 0 var(--ink)}.kb.tool svg{width:76%;height:76%}
+.kb.star{background:none;box-shadow:none;color:var(--yellow);width:1.3em}.kb.star svg{width:100%;height:100%}
+#tutText .bub,#askText .bub,.askList .bub{display:inline-grid;vertical-align:middle;position:relative;top:-.08em;margin:-.3em .14em;width:1.6em;height:1.6em;font-size:.86em;line-height:1}
+/* ---------- 핍의 설명회 ---------- */
+#toolInfo{pointer-events:auto}
+.askBtn{display:block;width:100%;margin-top:9px;padding:7px 9px;border-radius:7px;background:var(--yellow);color:var(--ink);font-weight:900;text-align:left;box-shadow:0 3px 0 #b88e10}
+.askBtn span{float:right;font-weight:700;font-size:11px;opacity:.7;line-height:1.7}
+.askBtn:active{transform:translateY(3px);box-shadow:none}
+.askList{display:flex;flex-wrap:wrap;gap:7px}
+.askList button{display:flex;align-items:center;gap:3px;padding:3px 10px 3px 4px;border-radius:9px;background:var(--cream2);font-weight:800;color:var(--ink)}
+.askList button{font-size:14px}.askList button .kb,.askList button .bub{margin:0 .2em 0 0;top:0}
+#ask{position:absolute;inset:0;z-index:14;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(18,20,27,.74);cursor:pointer}
+.askStage{position:relative;width:min(600px,100%);padding-bottom:6px}
+.board{position:relative;background:var(--cream);border-radius:8px;padding:10px 10px 12px;box-shadow:0 8px 0 var(--ink);transform:rotate(-1deg);animation:endIn .4s cubic-bezier(.3,1.4,.5,1)}
+.boardHead{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 9px;color:var(--ink)}
+#askTitle{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:900}
+#askTitle em{font-style:normal;font-size:13px;font-weight:800;color:#fff;background:var(--green);padding:3px 9px;border-radius:6px}
+#askTitle .kb,#askTitle .bub{margin:0;top:0;font-size:.8em}
+.boardHead small{font-weight:800;color:var(--mute)}
+#askCanvas{display:block;width:100%;border-radius:4px;background:#474c78}
+.tape{position:absolute;top:-11px;width:74px;height:24px;background:rgba(255,201,40,.82);box-shadow:0 1px 0 rgba(0,0,0,.15)}
+.tape.a{left:26px;transform:rotate(-5deg)}.tape.b{right:26px;transform:rotate(4deg)}
+#askPip{position:absolute;right:-92px;bottom:-4px;width:230px;transform:scaleX(-1);pointer-events:none;z-index:2}
+#askPip.pop{animation:askPop .34s cubic-bezier(.3,1.5,.5,1)}
+@keyframes askPop{from{transform:scaleX(-1) translateY(26px) rotate(7deg)}}
+#askBubble{position:relative;margin:16px 96px 0 0;background:#fff;color:var(--ink);border-radius:14px;padding:11px 18px 14px;box-shadow:0 5px 0 var(--ink)}
+#askBubble:before{content:"";position:absolute;right:-8px;top:24px;width:18px;height:18px;background:#fff;transform:rotate(45deg);border-radius:3px}
+#askBubble b{font-size:13px;font-weight:900;color:var(--green)}#askBubble b small{font-weight:600;color:var(--mute);margin-left:4px}
+#askBubble p{margin:4px 0 0;font-size:16px;line-height:1.6;font-weight:700;min-height:3.2em}
+#askNext{display:none;position:absolute;right:14px;bottom:9px;border:6px solid transparent;border-top:8px solid var(--green2);border-bottom:0;animation:nextBob .7s ease-in-out infinite}
+#ask.ready #askNext{display:block}
+#askClose{position:absolute;right:14px;top:14px;padding:7px 13px;border-radius:7px;background:rgba(246,243,234,.16);color:#fff;font-weight:700}
+
 /* 마무리: 인수인계서 */
 #tutEnd{position:absolute;inset:0;z-index:13;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(18,20,27,.7)}
 .endCard{position:relative;width:min(430px,100%);background:var(--cream);color:var(--ink);border-radius:6px;padding:26px 30px 24px;box-shadow:0 8px 0 var(--ink);transform:rotate(-1.4deg);animation:endIn .45s cubic-bezier(.3,1.4,.5,1)}
@@ -279,5 +310,6 @@ body.pre #topbar,body.pre #hud,body.pre #caption,body.pre #tray,body.pre #toolIn
   #tut.at-C #tutPip{width:240px;margin-left:-120px}#tut.at-C #tutBubble{bottom:220px}#tut.at-C #tutBubble p{font-size:22px}
   #tutSkip{top:66px}
   #tut.dock-top #tutPip{top:96px}#tut.dock-top #tutBubble{top:112px}
+  #askPip{width:150px;right:-18px;bottom:auto;top:-70px}#askBubble{margin-right:0}#askBubble p{font-size:14px}#askBubble:before{display:none}#askTitle{font-size:18px}
   #endPip{width:130px;right:-14px;top:-84px}.endCard h2{font-size:28px}
 }

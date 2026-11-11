@@ -377,9 +377,10 @@
 
   /* ---------- 도구 트레이: 아이콘만, 누르면 설명이 뜬다 ---------- */
   function hideInfo() { $('toolInfo').classList.add('hidden'); }
+  const PS = (window.PIP_SCRIPT || { ask: { button: '', buttonSub: '' } }).ask;
   function showInfo(btn) {
     const T = TOOL[btn.dataset.tool], el = $('toolInfo');
-    el.innerHTML = `<em>$${T.cost}</em><b>${T.nm}</b><p>${T.desc}</p>`;
+    el.innerHTML = `<em>$${T.cost}</em><b>${T.nm}</b><p>${T.desc}</p><button class="askBtn" data-ask="${T.id}">${PS.button} <span>${PS.buttonSub}</span></button>`;
     el.classList.remove('hidden');
     const wr = wrap.getBoundingClientRect(), br = btn.getBoundingClientRect(), tr = $('tray').getBoundingClientRect();
     const cx = br.left + br.width / 2 - wr.left, w = el.offsetWidth, left = Math.max(8, Math.min(vw - w - 8, cx - w / 2));
@@ -396,7 +397,7 @@
     }));
     $('tray').addEventListener('scroll', hideInfo);
   }
-  document.addEventListener('pointerdown', e => { if (!e.target.closest('.tool')) hideInfo(); }, true);
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('.tool') && !e.target.closest('#toolInfo')) hideInfo(); }, true);
 
   /* 예시 설계 — 정답 판정용이 아니라 같은 엔진으로 돌려 볼 수 있는 비교용 */
   const at = (t, x, y) => t[y * W + x];
