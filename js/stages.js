@@ -1,5 +1,7 @@
 /* FLOW LAB — 지역과 미니 스테이지
- * 지역(시골 → 항구 → 도시 → 산)마다 미니 스테이지가 다섯 개씩 있다. 뒤로 갈수록 도구가 하나씩 늘어난다.
+ * 지역(시골 → 항구 → 도시 → 산)마다 미니 스테이지가 여섯 개씩 있다. 뒤로 갈수록 도구가 하나씩 늘어나고,
+ * 지역의 마지막(final)은 그 지역에서 배운 도구를 전부 써야 별을 다 받는 총정리다(need: 해법에서 빼면 별이 줄어야 하는 도구).
+ * 고친 뒤에는 `node tools/check-stages.js` 로 확인한다.
  * 돈: 내부값 100 = $100K (도로 한 칸).
  *
  * 맵 기호(12×8)  . 빈 터   # 도로   ~ 물   F 밭   M 풍차   H 집   B 큰 건물   P 공원   C 공사 구역
@@ -49,7 +51,12 @@
         rows: ['1#########..', '.........#..', '..FFF.H..#..', 'F..FF....#..', '......~~.#..', 'H.....~~.#..', '.........#..', '3#########..'],
         terms: { 1: T('home', '마을'), 3: T('market', '장터') }, flows: flow2(.3, .25), mix: [['normal', .5], ['tractor', .25], ['moto', .25]],
         budget: 1200, tools: ['road', 'demolish'], goals: [['time', 16], ['cost', 800], ['cost', 700]],
-        sol: R([0, 1], [0, 2], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6]) }
+        sol: R([0, 1], [0, 2], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6]) },
+      { id: 'r6', name: '장날', task: '끊긴 길, 개울, 느린 경운기. 시골에서 배운 것을 전부 써야 장이 섭니다', final: true, need: ['road', 'bridge', 'wide'], scale: 1.5,
+        rows: ['F..F...~.F..', '....H..~....', 'F......~...F', '1###...~.##3', '....F..~....', '.H.....~..H.', 'F....F.~...F', '.......~....'],
+        terms: { 1: T('home', '마을'), 3: T('market', '장터') }, flows: flow2(.75, .6), mix: [['normal', .35], ['tractor', .35], ['moto', .3]],
+        budget: 3600, tools: ['road', 'bridge', 'wide', 'demolish'], goals: [['time', 40], ['arrive'], ['time', 28]],
+        sol: [...R([4, 3], [5, 3], [6, 3], [8, 3]), [7, 3, 'bridge', 'H'], ...[1, 2, 3, 4, 5, 6, 8, 9, 10].map(x => [x, 3, 'wide'])] }
     ] },
     { id: 'harbor', name: '항구', theme: 'harbor', stages: [
       { id: 'h1', name: '부두 가는 길', task: '창고에서 부두까지, 운하를 건너 길을 이어 주세요',
@@ -82,7 +89,14 @@
         flows: [{ from: 'S1', to: 'E1', am: .4, pm: .15 }, { from: 'E1', to: 'S1', am: .1, pm: .35 }, { from: 'S2', to: 'E2', am: .35, pm: .12 }, { from: 'E2', to: 'S2', am: .08, pm: .3 }, { from: 'S1', to: 'E2', am: .08, pm: .03 }, { from: 'S2', to: 'E1', am: .08, pm: .03 }],
         mix: [['normal', .6], ['novice', .25], ['speeder', .15]],
         budget: 1000, tools: ['round', 'signal', 'guide', 'demolish'], goals: [['time', 14], ['noacc'], ['cost', 500]],
-        sol: [[5, 3, 'round']] }
+        sol: [[5, 3, 'round']] },
+      { id: 'h6', name: '출항 시간', task: '눈치 싸움 사거리, 횡단보도, 운하 건너 닿지 않는 부두. 항구의 문제가 한자리에 모였습니다', observe: true, final: true, need: ['bridge', 'overpass', 'round'], scale: 1.5,
+        rows: ['..K..2..~.K.', '.....#..~...', '.K...#..~..K', '1#######=X#3', '.....#..~KKK', '..K..#..~KKK', '.....#..~.#4', '........~...'],
+        terms: { 1: T('home', '주택가'), 2: T('factory', '창고'), 3: T('office', '여객 터미널'), 4: T('port', '화물 부두') },
+        flows: [{ from: 'S1', to: 'E1', am: .3, pm: .09 }, { from: 'E1', to: 'S1', am: .048, pm: .24 }, { from: 'S2', to: 'E2', am: .21, pm: .072 }, { from: 'E2', to: 'S2', am: .042, pm: .18 }, { from: 'S1', to: 'E2', am: .06, pm: .024 }, { from: 'S2', to: 'E1', am: .06, pm: .024 }],
+        mix: [['normal', .65], ['novice', .2], ['speeder', .15]], cw: [12, 8],
+        budget: 2400, tools: ['road', 'bridge', 'overpass', 'round', 'signal', 'demolish'], goals: [['time', 40], ['arrive'], ['time', 18]],
+        sol: [...R([6, 6], [7, 6], [9, 6]), [8, 6, 'bridge', 'H'], [9, 3, 'overpass'], [5, 3, 'round']] }
     ] },
     { id: 'city', name: '도시', theme: 'town', stages: [
       { id: 'c1', name: '등굣길 횡단보도 둘', task: '횡단보도 두 곳에서 연달아 멈춥니다', observe: true,
@@ -107,7 +121,10 @@
         mix: [['normal', .7], ['novice', .2], ['speeder', .1]], cw: [12, 8],
         budget: 1500, tools: ['overpass', 'round', 'signal', 'bridge', 'road', 'demolish'], goals: [['time', 30], ['time', 22], ['cost', 900]],
         sol: [[9, 4, 'overpass'], [3, 4, 'round']] },
-      { id: 'c5', name: '완벽한 출근길', task: '도구를 전부 드립니다. 이 동네의 아침을 끝까지 다듬어 보세요', observe: true, locks: true,
+      { id: 'c6', name: '막지 않고 푸는 법', task: '같은 동네, 다른 숙제. 이번에는 길을 막지 않고 풀어 보세요. 횡단보도 둘, 갈림길 둘', observe: true, locks: true, need: ['overpass', 'round'],
+        rows: null, budget: 2200, tools: ['overpass', 'round', 'signal', 'guide', 'road', 'demolish'], goals: [['time', 24], ['noacc'], ['time', 17]],
+        sol: [[2, 4, 'overpass'], [9, 4, 'overpass'], [4, 4, 'round'], [7, 4, 'round']] },
+      { id: 'c5', name: '완벽한 출근길', task: '도구를 전부 드립니다. 이 동네의 아침을 끝까지 다듬어 보세요', observe: true, locks: true, final: true, need: ['bus', 'overpass'],
         rows: null, budget: 3500, tools: ['road', 'wide', 'oneway', 'demolish', 'guide', 'bus', 'rev', 'round', 'signal', 'bridge', 'tunnel', 'overpass', 'camera', 'bump', 'barricade'],
         goals: [['time', 24], ['noacc'], ['time', 20], ['best', 17, 1200]],
         sol: [[5, 4, 'bus'], [6, 4, 'bus'], [2, 4, 'overpass'], [9, 4, 'overpass']] }
@@ -139,7 +156,12 @@
         rows: ['T..T....T..T', '....^.......', 'T..........T', '1####X#####3', '....T..^....', '.T........T.', 'T....T.....T', '............'],
         terms: { 1: T('home', '읍내'), 3: T('office', '스키장') }, flows: flow2(.8, .65), mix: [['normal', .45], ['tractor', .3], ['moto', .25]], cw: [12, 7],
         budget: 3000, tools: ['wide', 'overpass', 'road', 'demolish'], goals: [['time', 26], ['time', 20], ['cost', 2700]],
-        sol: [[5, 3, 'overpass'], ...[1, 2, 3, 4, 6, 7, 8, 9, 10].map(x => [x, 3, 'wide'])] }
+        sol: [[5, 3, 'overpass'], ...[1, 2, 3, 4, 6, 7, 8, 9, 10].map(x => [x, 3, 'wide'])] },
+      { id: 'm6', name: '개장일', task: '바위, 협곡, 느린 트럭, 횡단보도. 스키장 개장일에 전부 겹쳤습니다', final: true, need: ['tunnel', 'bridge', 'overpass', 'wide'], scale: 1.5,
+        rows: ['T.^T....T~.T', '..^......~..', 'T.^......~.T', '1.^.##X##~#3', '..^......~..', '.T^......~T.', 'T.^..T...~.T', '..^......~..'],
+        terms: { 1: T('home', '읍내'), 3: T('office', '스키장') }, flows: flow2(.65, .52), mix: [['normal', .45], ['tractor', .3], ['moto', .25]], cw: [12, 7],
+        budget: 4000, tools: ['road', 'tunnel', 'bridge', 'overpass', 'wide', 'demolish'], goals: [['arrive'], ['time', 26], ['time', 22.5]],
+        sol: [[1, 3, 'road'], [2, 3, 'tunnel', 'H'], [3, 3, 'road'], [9, 3, 'bridge', 'H'], [6, 3, 'overpass'], ...[3, 4, 5, 7, 8, 10].map(x => [x, 3, 'wide'])] }
     ] }
   ];
 
