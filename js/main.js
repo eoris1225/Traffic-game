@@ -453,6 +453,6 @@
   if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('900 20px "Wanted Sans"'), document.fonts.load('500 13px "Wanted Sans"')]).then(() => { rebuild3d(); resize(); }).catch(() => {});
   requestAnimationFrame(frame);
 
-  window.FlowLab = { V3, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, baseM, grade,
+  window.FlowLab = { V3, UI, IC, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, baseM, grade,
     apply: (x, y, id) => { const r = apply(y * W + x, id); afterEdit(); return r; } };
 })();
