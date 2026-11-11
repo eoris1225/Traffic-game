@@ -102,6 +102,7 @@
     $('hudGoal').textContent = TARGET; $('btnGoals').innerHTML = starRow(best); $('budOf').textContent = '/ ' + won(ST.budget);
     $('presets').innerHTML = (ST.presets || []).map((p, i) => `<button class="link" data-preset="${i}">${p.name}</button>`).join('') || '<span style="color:#6f7482">이 스테이지에는 예시가 없습니다.</span>';
     if (ST.observe) startBefore(); else startEdit();
+    if (V3) V3.setView(mode === 'edit' ? 'top' : 'iso', true);     // 스테이지를 열 때는 시점을 곧바로 제자리에 둔다(먼 데서 휘돌아 오지 않게)
   }
   /* 출발지에서 도착지까지 길이 이어져 있는가 */
   function connected() {
@@ -466,7 +467,8 @@
     document.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => {
       const k = +b.dataset.stage;
       if (!unlocked(k)) { toast('앞 스테이지에서 별을 하나 받으면 열려요'); return; }
-      $('stageSel').classList.add('hidden'); if (k !== stageIdx) loadStage(k);
+      $('stageSel').classList.add('hidden');
+      if (k !== stageIdx) loadStage(k); else if (V3) V3.setView(mode === 'edit' ? 'top' : 'iso', true);   // 같은 스테이지여도 시점은 제자리로(시작 화면의 둘러보기 시점이 남지 않게)
       document.dispatchEvent(new CustomEvent('flow-stage', { detail: k }));
     });
   }
