@@ -16,6 +16,8 @@
 
   /* 대사는 js/script.js 에 있다.  넘기는 법 — say(기본): 눌러서 · auto: 잠깐 뒤 저절로 · wait: 조건이 참이 되면(스포트라이트 안만 조작 가능)
    * spot: 어둡게 하고 남겨 둘 요소(들) 또는 칸 [x, y].  튜토리얼은 1스테이지(시골길 잇기)에서 진행된다. */
+  const ROUTE = [[3, 3], [4, 3], [4, 2], [5, 2], [6, 2], [7, 2], [7, 3], [7, 4], [8, 4]];          // 안내용 추천 경로(다른 길로 이어도 된다)
+  const roadAt = c => !!L.tiles[c[1] * 12 + c[0]].road;
   const STEPS = [
     { pose: 'search', at: 'L', text: T.call1, auto: 1400 },
     { pose: 'search', at: 'R', text: T.call2, auto: 1400 },
@@ -25,9 +27,11 @@
     { pose: 'worry', text: T.look },
     { pose: 'point', spot: () => $('tray'), text: T.tray },
     { pose: 'point', spot: () => tool('road'), text: T.pick, wait: () => !!document.querySelector('.tool.sel[data-tool="road"]') },
-    { pose: 'think', spot: () => $('map'), free: true, text: T.draw, wait: () => L.connected() || L.mode !== 'edit' },
+    { pose: 'think', spot: ROUTE[0], text: T.first, wait: () => roadAt(ROUTE[0]) || L.connected() || L.mode !== 'edit' },
+    { pose: 'think', spot: { cells: ROUTE }, free: true, text: T.draw, wait: () => L.connected() || L.mode !== 'edit' },
     { pose: 'found', spot: () => $('btnPlay'), text: T.run, wait: () => L.mode === 'run' || resultUp() },
-    { pose: 'talk', spot: () => $('btnSkip'), text: T.watch, wait: resultUp },
+    { pose: 'point', spot: () => $('hud'), text: T.hud },
+    { pose: 'talk', spot: () => $('btnSkip'), text: T.wait, wait: resultUp },
     { pose: 'cheer', spot: () => document.querySelector('#result .card'), text: T.result },
     { pose: 'talk', spot: () => $('guideBtn'), text: T.help, enter: () => $('result').classList.add('hidden') },
     { pose: 'cheer', text: T.bye }
@@ -94,14 +98,25 @@
     running = true; show(0);
   }
   document.addEventListener('flow-stage', () => { if (!running) brief(L.stage.id); });
+  document.addEventListener('flow-clear', e => { if (!running) brief(e.detail + 'Win'); });
 
   /* 스포트라이트 자리(무대 기준 사각형) 계산 */
   function rectOf(target) {
     const wr = wrap.getBoundingClientRect();
+    if (target && target.cells) {                                // 여러 칸: 아직 길이 없는 칸만 노랗게 표시
+      if (!V3 || L.mode !== 'edit') return null;
+      const todo = target.cells.filter(c => !roadAt(c)); let html = '', x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const [x, y] of todo) {
+        const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(p => V3.project(p[0], p[1], .02));
+        html += '<polygon points="' + c.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"/>';
+      }
+      mark.innerHTML = html; mark.style.display = todo.length ? 'block' : 'none';
+      return null;                                               // 어둡게 가리지 않는다(지도 전체를 쓸 수 있게)
+    }
     if (Array.isArray(target) && typeof target[0] === 'number') {
       if (!V3 || L.mode !== 'edit') return null;
       const [x, y] = target, c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(p => V3.project(p[0], p[1], .02));
-      poly.setAttribute('points', c.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')); mark.style.display = 'block';
+      mark.innerHTML = '<polygon points="' + c.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"/>'; mark.style.display = 'block';
       const xs = c.map(p => p[0]), ys = c.map(p => p[1]);
       return [Math.min(...xs) - 10, Math.min(...ys) - 10, Math.max(...xs) - Math.min(...xs) + 20, Math.max(...ys) - Math.min(...ys) + 20];
     }
@@ -133,7 +148,7 @@
   const guard = e => {
     if (!running || !step || !step.wait || e.target.id === 'tutSkip') return;
     const wr = wrap.getBoundingClientRect(), x = e.clientX - wr.left, y = e.clientY - wr.top;
-    if (step.free && (e.target.closest('#map') || e.target.closest('#tray') || e.target.closest('#btnUndo'))) return;
+    if (step.free && e.target.closest && (e.target.closest('#map') || e.target.closest('#tray') || e.target.closest('#btnUndo'))) return;
     if (hole && x >= hole[0] && x <= hole[0] + hole[2] && y >= hole[1] && y <= hole[1] + hole[3]) return;
     e.stopPropagation(); e.preventDefault();
   };

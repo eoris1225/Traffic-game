@@ -230,6 +230,7 @@
       history.push({ sig, cost: c, pc: m.perCapita, acc: m.accidents, stars: st, clear: st > 0, arr: m.arrived });
       if (history.length > 12) history.shift();
       if (st > best) best = st;
+      if (st > 0 && !starsOf(stageIdx)) setTimeout(() => document.dispatchEvent(new CustomEvent('flow-clear', { detail: ST.id })), 900);   // 이 스테이지 첫 별
       if (st > starsOf(stageIdx)) progress[ST.id] = st;
       save(); $('btnGoals').innerHTML = starRow(best); buildStageUI();
     }
