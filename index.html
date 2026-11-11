@@ -10,13 +10,8 @@
 <div id="app">
   <header>
     <div class="brand"><span class="mark"><i></i><i></i><i></i></span><h1>FLOW<b>LAB</b></h1></div>
-    <nav id="stages">
-      <span class="stage active"><b>1</b>도심 지름길의 역설</span>
-      <span class="stage"><b>2</b>강변 순환로<i data-ic="lock"></i></span>
-      <span class="stage"><b>3</b>입체 교차로<i data-ic="lock"></i></span>
-      <span class="stage"><b>4</b>산악 물류망<i data-ic="lock"></i></span>
-      <span class="stage"><b>5</b>항만 대순환<i data-ic="lock"></i></span>
-    </nav>
+    <nav id="stages"></nav>
+    <button id="btnStages" class="hdrBtn">스테이지 선택</button>
   </header>
 
   <div id="stageWrap">
@@ -24,12 +19,13 @@
 
     <div id="topbar">
       <div class="side">
+        <button id="btnStages2" class="ib" title="스테이지 선택"><i data-ic="list"></i></button>
         <button id="btnHelp" class="ib" title="게임 방법"><i data-ic="help"></i></button>
         <button id="btnStats" class="ib" title="수치 확인"><i data-ic="chart"></i></button>
         <button id="btnBefore" class="ib" title="고치기 전 상황 다시 보기"><i data-ic="rewind"></i></button>
         <button id="btnGoals" class="stars" title="목표 보기"></button>
       </div>
-      <div id="budget" title="사용한 예산 / 총예산"><b id="budBig">$0</b><span class="of">/ $3,500</span></div>
+      <div id="budget" title="사용한 예산 / 총예산"><b id="budBig">$0</b><span class="of" id="budOf">/ $3.5M</span></div>
       <div class="side right">
         <button id="btnUndo" class="ib" title="되돌리기"><i data-ic="undo"></i></button>
         <button id="btnReset" class="ib" title="처음 도로로 되돌리기"><i data-ic="trash"></i></button>
@@ -64,7 +60,8 @@
         <ul id="resGoals" class="goals"></ul>
         <p id="resBody"></p>
         <div class="resBtns">
-          <button id="resEdit" class="cta">도로 고치기</button>
+          <button id="resNext" class="cta">다음 스테이지</button>
+          <button id="resEdit" class="link">다시 고치기</button>
           <button id="resStats" class="link">수치 확인</button>
           <button id="resClose" class="link">닫기</button>
         </div>
@@ -111,8 +108,14 @@
         <button id="tStart" class="tGo"></button>
         <button id="tAlt" class="tLink"></button>
       </div></div>
-      <img id="tPip" alt="">
     </div>
+  </div>
+</div>
+
+<div id="stageSel" class="modal hidden">
+  <div class="sheet">
+    <div class="sheetHead"><h2>스테이지</h2><button id="stagesClose" class="ib dark"><i data-ic="close"></i></button></div>
+    <div id="stageList"></div>
   </div>
 </div>
 
@@ -141,11 +144,7 @@
         <div class="kv"><span>상충점 지수</span><div id="conf"></div></div>
         <div class="kv"><span>사용 예산</span><div id="statBudget"></div></div>
         <h3 class="gap">예시 설계 불러오기</h3>
-        <div class="presets">
-          <button class="link" data-preset="0">지름길 폐쇄 <em>$100</em></button>
-          <button class="link" data-preset="1">버스 전용 지름길 + 육교 <em>$1,100</em></button>
-          <button class="link" data-preset="2">회전교차로 + 육교 <em>$1,800</em></button>
-        </div>
+        <div class="presets" id="presets"></div>
       </section>
       <section class="formulas">
         <h3>게임 안에서 돌아가는 모델</h3>
@@ -182,6 +181,7 @@
 
 <script src="js/sim.js"></script>
 <script src="vendor/three.min.js"></script>
+<script src="js/stages.js"></script>
 <script src="js/render.js"></script>
 <script src="js/render3d.js"></script>
 <script src="js/script.js"></script>

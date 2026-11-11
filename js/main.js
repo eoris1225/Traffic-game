@@ -4,18 +4,16 @@
   'use strict';
   const F = window.FlowSim, R = window.FlowRender, W = F.W, H = F.H;
   const $ = id => document.getElementById(id);
-  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.stage1.v6';
+  const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.v7.', PROG = 'flowlab.progress.v1';
+  const STAGES = window.FlowStages.STAGES, SOON = window.FlowStages.SOON;
+  const won = c => (c >= 1000 ? '$' + (c / 1000) + 'M' : '$' + c + 'K');   // 돈: 내부값 100 = $100K (도로 한 칸)
 
-  /* 목표: 앞 단계를 달성해야 다음 별을 받는다. 뒤로 갈수록 어렵다. */
-  const PURPLE_BUDGET = 1200;
-  const GOALS = [
-    { text: '평균 이동시간 24초 이하', ok: (m) => m.perCapita <= 24, show: m => m.perCapita.toFixed(1) + '초' },
-    { text: '사고 없이', ok: (m) => m.accidents === 0, show: m => m.accidents + '건' },
-    { text: '평균 이동시간 20초 이하', ok: (m) => m.perCapita <= 20, show: m => m.perCapita.toFixed(1) + '초' },
-    { text: '17초 이하를 예산 $1,200 안에서', purple: true, ok: (m, c) => m.perCapita <= 17 && c <= PURPLE_BUDGET, show: (m, c) => '$' + c.toLocaleString() }
-  ];
-  const TARGET = 24;
+  /* 목표는 스테이지마다 다르다(js/stages.js). 앞 단계를 달성해야 다음 별을 받는다. */
+  let ST = STAGES[0], GOALS = ST.goals, TARGET = ST.target, stageIdx = 0;
   function grade(m, c) { let n = 0; while (n < GOALS.length && GOALS[n].ok(m, c)) n++; return n; }
+  let progress = {}; try { progress = JSON.parse(localStorage.getItem(PROG) || '{}') || {}; } catch (e) { /* ignore */ }
+  const starsOf = k => progress[STAGES[k].id] || 0;
+  const unlocked = k => k === 0 || starsOf(k - 1) > 0;
 
   /* ---------- 그림 문자(직접 그린 SVG) ---------- */
   const S = (body, vb) => `<svg viewBox="0 0 ${vb || 32} ${vb || 32}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
@@ -29,6 +27,7 @@
     skip: S('<path d="M4 5v14l9-7zM13 5v14l7-7z" fill="currentColor"/><rect x="19.5" y="5" width="2.5" height="14" rx="1" fill="currentColor"/>', 24),
     play: S('<path d="M7 4.5v15a1 1 0 0 0 1.5.9l12.5-7.5a1 1 0 0 0 0-1.8L8.5 3.6A1 1 0 0 0 7 4.5z" fill="currentColor"/>', 24),
     stop: S('<rect x="5" y="5" width="14" height="14" rx="2.5" fill="currentColor"/>', 24),
+    list: S('<rect x="3" y="4" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="14" y="4" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="3" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="14" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/>', 24),
     close: S('<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" ' + ln + '/>', 24),
     lock: S('<rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="2.2" ' + ln + '/>', 24),
     sun: S('<circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" ' + ln + '/>', 24),
@@ -57,14 +56,14 @@
 
   /* ---------- 도구 (설명은 일상 언어로) ---------- */
   const TOOLS = [
-    { id: 'road', g: 0, nm: '도로', cost: F.COST.road, desc: '빈 터에 새 길을 냅니다. 풀밭·텃밭·주차장은 빈 터, 집과 건물은 안 됩니다.' },
+    { id: 'road', g: 0, nm: '도로', cost: F.COST.road, desc: '빈 터에 새 길을 냅니다. 칸을 누르거나 끌어서 이어 그리세요. 집·건물·밭에는 놓을 수 없습니다.' },
     { id: 'wide', g: 0, nm: '차선 확장', cost: F.COST.wide, desc: '2칸 이상 이어 깔면 2차로가 되어 느린 차를 앞지를 수 있어요.' },
     { id: 'oneway', g: 0, nm: '일방통행', cost: F.COST.oneway, desc: '한쪽 방향으로만 다니게 합니다. 누를 때마다 방향이 바뀌어요.' },
-    { id: 'demolish', g: 0, nm: '철거', cost: F.COST.demolish, desc: '설치한 것은 전액 환불로 회수, 원래 있던 도로는 $50에 철거.' },
-    { id: 'guide', g: 1, nm: '유도선', cost: F.COST.guide, desc: '갈림길 바닥에 색 선을 칠해 초보 운전자가 헤매지 않게 합니다.' },
+    { id: 'demolish', g: 0, nm: '철거', cost: F.COST.demolish, desc: '설치한 것은 전액 환불로 회수, 원래 있던 도로는 $50K에 철거.' },
+    { id: 'guide', g: 1, nm: '유도선', cost: F.COST.guide, desc: '길이 갈라지는 교차로 칸에 칠하세요. 초보 운전자가 헤매지 않습니다. 곧은 길에서는 효과가 없어요.' },
     { id: 'bus', g: 1, nm: '버스 전용', cost: F.COST.bus, desc: '1차로 도로에 이어 칠하면 버스만 다니는 길이 됩니다. 버스엔 20명이 타고 있어요.' },
     { id: 'rev', g: 1, nm: '가변 차선', cost: F.COST.rev, desc: '가운데 차로가 붐비는 방향 쪽으로 자동으로 바뀝니다. 2칸 이상.' },
-    { id: 'round', g: 2, nm: '회전교차로', cost: F.COST.round, desc: '멈추지 않고 천천히 돌아 나가는 교차로. 충돌 위험이 크게 줄어요.' },
+    { id: 'round', g: 2, nm: '회전교차로', cost: F.COST.round, desc: '길이 셋 이상 만나는 곳에 놓으세요. 초보도 망설이지 않고 천천히 돌아 나가 사고가 크게 줄어요.' },
     { id: 'signal', g: 2, nm: '신호등', cost: F.COST.signal, desc: '차례를 정해 줘서 눈치 싸움과 머뭇거림을 없앱니다.' },
     { id: 'bridge', g: 2, nm: '다리', cost: F.COST.bridge, desc: '강은 다리로만 건널 수 있습니다. 다른 도로 위로 넘길 때도 씁니다. 누를 때마다 방향 전환.' },
     { id: 'tunnel', g: 2, nm: '지하차도', cost: F.COST.tunnel, desc: '바위·공원·도로 밑으로 지나갑니다. 누를 때마다 방향 전환.' },
@@ -76,21 +75,39 @@
   const TOOL = {}; TOOLS.forEach(t => TOOL[t.id] = t);
 
   /* ---------- 상태 ---------- */
-  const base = F.parseStage(F.STAGE1);
-  let tiles = F.cloneTiles(base), graph, conflicts;
-  const baseConf = F.conflictIndex(base).sum;
+  let base, tiles, graph, conflicts, baseConf, baseSim, baseM, baseSeries;
   let mode = 'before', sim = null, paused = false, speed = 2, acc = 0;
   let tool = 'road', hover = null, tracked = null, undo = [];
   let history = [], best = 0, lastM = null, lastSeries = [], predTimer = 0, predBase = null;
-
-  const baseSim = new F.Sim(base, { seed: SEED }); const baseM = baseSim.run(); const baseSeries = baseSim.series;
-
-  try {
-    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if (s && s.tiles && s.tiles.length === base.length) { tiles = s.tiles; history = s.history || []; best = s.best || 0; }
-  } catch (e) { /* 저장소를 못 써도 게임은 동작 */ }
-  function save() { try { localStorage.setItem(STORE, JSON.stringify({ tiles, history, best })); } catch (e) { /* ignore */ } }
-  graph = F.buildGraph(tiles); conflicts = F.conflictIndex(tiles);
+  const simOf = (t, seed) => new F.Sim(t, { seed, stage: ST.rows ? ST : null });
+  function save() {
+    try { localStorage.setItem(STORE + ST.id, JSON.stringify({ tiles, history, best })); localStorage.setItem(PROG, JSON.stringify(progress)); } catch (e) { /* 저장소를 못 써도 게임은 동작 */ }
+  }
+  /* 스테이지 불러오기: 맵·교통량·목표·도구가 통째로 바뀐다. fresh 면 저장된 설계를 버리고 처음 상태로 */
+  function loadStage(k, fresh) {
+    if (fresh) { try { localStorage.removeItem(STORE + STAGES[k].id); } catch (e) { /* ignore */ } }
+    stageIdx = k; ST = STAGES[k]; GOALS = ST.goals; TARGET = ST.target; F.BUDGET = ST.budget;
+    base = ST.rows ? F.parseStage(ST.rows, ST.terms, !ST.locks) : F.parseStage(F.STAGE1);
+    tiles = F.cloneTiles(base); history = []; best = starsOf(k); undo = []; lastM = null; lastSeries = []; predBase = null; sim = null; tracked = null;
+    try {
+      const sv = JSON.parse(localStorage.getItem(STORE + ST.id) || 'null');
+      if (sv && sv.tiles && sv.tiles.length === base.length) { tiles = sv.tiles; history = sv.history || []; }
+    } catch (e) { /* ignore */ }
+    baseConf = F.conflictIndex(base).sum;
+    baseSim = simOf(base, SEED); baseM = baseSim.run(); baseSeries = baseSim.series;
+    graph = F.buildGraph(tiles); conflicts = F.conflictIndex(tiles);
+    if (!ST.tools.includes(tool)) tool = ST.tools[0];
+    if (V3) V3.setTheme(ST.theme);
+    buildTray(); buildStageUI();
+    $('hudGoal').textContent = TARGET; $('btnGoals').innerHTML = starRow(best); $('budOf').textContent = '/ ' + won(ST.budget);
+    $('presets').innerHTML = (ST.presets || []).map((p, i) => `<button class="link" data-preset="${i}">${p.name}</button>`).join('') || '<span style="color:#6f7482">이 스테이지에는 예시가 없습니다.</span>';
+    if (ST.observe) startBefore(); else startEdit();
+  }
+  /* 출발지에서 도착지까지 길이 이어져 있는가 */
+  function connected() {
+    const s = simOf(tiles, SEED), f = s.cfg.flows[0];
+    return !!s.astar(s.termNode[f.from], s.termNode[f.to], { v0: 1, type: 'normal' }, -1);
+  }
 
   /* ---------- 화면 ---------- */
   const wrap = $('stageWrap'), cv = $('map'), ctx = cv.getContext('2d');
@@ -117,7 +134,7 @@
   function check(i, id) {
     const t = tiles[i];
     switch (id) {
-      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'house') return '사람 사는 집이에요. 길은 빈 터에 내 주세요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base === 'water') return '강 위에는 도로 대신 다리를 놓아야 해요'; if (t.base === 'park') return '공원은 밀 수 없어요. 밑으로 지하차도를 내 보세요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
+      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'house') return '사람 사는 집이에요. 길은 빈 터에 내 주세요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base === 'water') return '강 위에는 도로 대신 다리를 놓아야 해요'; if (t.base === 'park') return '공원은 밀 수 없어요. 밑으로 지하차도를 내 보세요'; if (t.base === 'field') return '한창 자라는 밭이에요. 옆으로 돌아가 주세요'; if (t.base === 'mill') return '풍차는 마을의 자랑이라 옮길 수 없어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
       case 'wide': if (!t.road) return '도로 위에만 설치할 수 있어요'; if (t.locked) return '잠긴 도로는 넓힐 수 없어요'; return null;
       case 'rev': case 'oneway': case 'guide': case 'bus': case 'bump': case 'barricade': case 'camera': case 'round': case 'signal':
         return t.road ? null : '도로 위에만 설치할 수 있어요';
@@ -167,7 +184,7 @@
           if (id === 'wide') t.rev = false; if (id === 'rev') { t.wide = false; t.oneway = -1; }
         }
     }
-    if (cost() > F.BUDGET) { Object.assign(t, before); return { err: '예산이 모자라요! (총 $3,500)' }; }
+    if (cost() > ST.budget) { Object.assign(t, before); return { err: '예산이 모자라요! (총 ' + won(ST.budget) + ')' }; }
     return { val };
   }
   function afterEdit() {
@@ -193,15 +210,16 @@
     const pb = $('btnPlay'); pb.innerHTML = `<i data-ic>${m === 'edit' ? UI.play : UI.stop}</i>`; pb.classList.toggle('stop', m !== 'edit');
     for (const id of ['btnSkip', 'btnSpeed']) $(id).style.visibility = m === 'edit' ? 'hidden' : 'visible';
     for (const id of ['btnUndo', 'btnReset']) $(id).style.visibility = m === 'edit' ? 'visible' : 'hidden';
-    if (m === 'before') setCaption('오전 8시. 아무도 움직이지 못합니다. 어디서 엉키는지 지켜보세요.', true);
+    if (m === 'before') setCaption(ST.caption, true);
     else if (m === 'run') setCaption('');
     rebuild3d();
     if (V3) V3.setView(m === 'edit' ? 'top' : 'iso');
     updateBudget();
   }
-  function startBefore() { sim = new F.Sim(base, { seed: SEED }); tracked = null; paused = false; acc = 0; setMode('before'); }
-  function startEdit() { sim = null; tracked = null; setMode('edit'); setCaption('도구를 고르고, 고칠 칸을 누르세요'); schedulePredict(); }
-  function startRun() { sim = new F.Sim(tiles, { seed: SEED }); tracked = null; paused = false; acc = 0; setMode('run'); }
+  function startBefore() { if (!ST.observe) return startEdit(); sim = simOf(base, SEED); tracked = null; paused = false; acc = 0; setMode('before'); }
+  const editHint = () => (ST.observe ? '도구를 고르고, 고칠 칸을 누르세요' : ST.caption);
+  function startEdit() { sim = null; tracked = null; setMode('edit'); setCaption(editHint()); schedulePredict(); }
+  function startRun() { sim = simOf(tiles, SEED); tracked = null; paused = false; acc = 0; setMode('run'); }
 
   function finish() {
     const m = sim.metrics(), isBefore = mode === 'before', c = isBefore ? 0 : cost(), st = isBefore ? 0 : grade(m, c);
@@ -212,24 +230,27 @@
       history.push({ sig, cost: c, pc: m.perCapita, acc: m.accidents, stars: st, clear: st > 0, arr: m.arrived });
       if (history.length > 12) history.shift();
       if (st > best) best = st;
-      save(); $('btnGoals').innerHTML = starRow(best);
+      if (st > starsOf(stageIdx)) progress[ST.id] = st;
+      save(); $('btnGoals').innerHTML = starRow(best); buildStageUI();
     }
     const sg = $('resSign');
     if (isBefore) { sg.className = 'fail'; sg.textContent = '평소와 같은 아침입니다'; }
-    else { sg.className = st ? 'clear' : 'fail'; sg.textContent = ['아직은 걷는 편이 빠릅니다', '차가 움직이기 시작했습니다', '아무도 다치지 않았습니다', '출근길이 조용해졌습니다', '더 손댈 곳이 없습니다'][st]; }
+    else if (!st) { sg.className = 'fail'; sg.textContent = m.arrived < m.total * .5 ? '아직 길이 이어지지 않았어요' : '조금만 더 고쳐 볼까요'; }
+    else { sg.className = 'clear'; sg.textContent = st >= GOALS.length ? '더 손댈 곳이 없습니다' : ['', '차가 움직이기 시작했습니다', '아주 좋아요', '출근길이 조용해졌습니다'][Math.min(3, st)]; }
+    $('resNext').style.display = (!isBefore && st > 0 && stageIdx + 1 < STAGES.length) ? '' : 'none';
     $('resStars').innerHTML = starRow(st);
     goalList($('resGoals'), m, c);
     $('resBody').innerHTML = isBefore
       ? `평균 이동시간 <b>${m.perCapita.toFixed(1)}초</b> · 사고 <b>${m.accidents}건</b> · 도착 <b>${m.arrived}/${m.total}</b>`
-      : `고치기 전 ${baseM.perCapita.toFixed(1)}초 → <b>${m.perCapita.toFixed(1)}초</b> · 도착 <b>${m.arrived}/${m.total}</b> · 예산 <b>$${c.toLocaleString()}</b>`;
+      : `고치기 전 ${baseM.perCapita.toFixed(1)}초 → <b>${m.perCapita.toFixed(1)}초</b> · 도착 <b>${m.arrived}/${m.total}</b> · 예산 <b>${won(c)}</b>`;
     $('result').classList.remove('hidden'); setCaption('');
   }
 
   /* ---------- 상태 띠 ---------- */
   function updateBudget() {
     const c = mode === 'before' ? 0 : cost();
-    $('budBig').textContent = '$' + c.toLocaleString();
-    $('budget').classList.toggle('tight', c > F.BUDGET * 0.9);
+    $('budBig').textContent = won(c);
+    $('budget').classList.toggle('tight', c > ST.budget * 0.9);
   }
   let lastHud = 0;
   function updateHud(now) {
@@ -250,10 +271,11 @@
     if (mode !== 'edit') return;
     predTimer = setTimeout(() => {
       if (mode !== 'edit') return;
-      if (!predBase) predBase = new F.Sim(base, { seed: PRED_SEED }).run();
-      if (cost() === 0) { setCaption('도구를 고르고, 고칠 칸을 누르세요'); return; }
-      const m = new F.Sim(tiles, { seed: PRED_SEED }).run(), d = m.perCapita - predBase.perCapita;
-      setCaption(`이대로 실행하면 약 <b>${m.perCapita.toFixed(0)}초</b> <span class="${d < 0 ? 'good' : 'bad'}">(${d < 0 ? '' : '+'}${d.toFixed(0)}초)</span> · 사고 <b class="${m.accidents === 0 ? 'good' : 'bad'}">${m.accidents}건</b>`);
+      if (cost() === 0) { setCaption(editHint()); return; }
+      if (!predBase) predBase = simOf(base, PRED_SEED).run();
+      const m = simOf(tiles, PRED_SEED).run(), d = m.perCapita - predBase.perCapita;
+      if (m.arrived < m.total * .5) { setCaption(ST.observe ? '이대로면 차들이 목적지에 닿지 못해요' : '아직 길이 끊겨 있어요. 빈 터를 따라 끝까지 이어 주세요'); return; }
+      setCaption(`이대로 실행하면 약 <b>${m.perCapita.toFixed(0)}초</b>` + (ST.observe ? ` <span class="${d < 0 ? 'good' : 'bad'}">(${d < 0 ? '' : '+'}${d.toFixed(0)}초)</span>` : '') + ` · 사고 <b class="${m.accidents === 0 ? 'good' : 'bad'}">${m.accidents}건</b>`);
     }, 250);
   }
 
@@ -274,13 +296,13 @@
     const pts = [{ cost: 0, pc: baseM.perCapita, base: true }].concat(history.map((h, k) => ({ cost: h.cost, pc: h.pc, clear: h.clear, cur: k === history.length - 1 })));
     R.pareto($('pareto'), { pts, target: TARGET });
     $('hist').innerHTML = history.length ? '<table><tr><th>설계</th><th>예산</th><th>이동시간</th><th>변화</th><th>사고</th><th>결과</th></tr>' +
-      history.map((h, k) => `<tr><td>#${k + 1}</td><td>$${h.cost.toLocaleString()}</td><td>${h.pc.toFixed(1)}초</td><td>${(h.pc - baseM.perCapita).toFixed(1)}</td><td>${h.acc}</td><td class="${h.clear ? 'ok' : 'ng'}">${h.clear ? '★'.repeat(Math.min(3, h.stars)) + (h.stars > 3 ? '<span style="color:#8b5cf6">★</span>' : '') : '실패'}</td></tr>`).reverse().join('') + '</table>'
+      history.map((h, k) => `<tr><td>#${k + 1}</td><td>${won(h.cost)}</td><td>${h.pc.toFixed(1)}초</td><td>${(h.pc - baseM.perCapita).toFixed(1)}</td><td>${h.acc}</td><td class="${h.clear ? 'ok' : 'ng'}">${h.clear ? '★'.repeat(Math.min(3, h.stars)) + (h.stars > 3 ? '<span style="color:#8b5cf6">★</span>' : '') : '실패'}</td></tr>`).reverse().join('') + '</table>'
       : '<span style="color:#6f7482">실행한 결과가 여기에 쌓입니다. 서로 다른 설계를 비교해 보세요.</span>';
-    const mx = baseSim.mix, tot = mx.normal + mx.speeder + mx.novice, items = [['normal', '일반'], ['speeder', '과속'], ['novice', '초보']];
+    const mx = baseSim.mix, items = [['normal', '일반'], ['speeder', '과속'], ['novice', '초보'], ['tractor', '경운기'], ['moto', '오토바이']].filter(i => mx[i[0]] > 0), tot = items.reduce((a, i) => a + mx[i[0]], 0) || 1;
     $('mixBar').innerHTML = items.map(([k]) => `<div style="width:${mx[k] / tot * 100}%;background:${R.CAR[k]}"></div>`).join('');
-    $('mixLegend').innerHTML = items.map(([k, n]) => `<span><i style="background:${R.CAR[k]}"></i>${n} ${(mx[k] / tot * 100).toFixed(0)}%</span>`).join('') + `<span><i style="background:${R.CAR.bus}"></i>버스 ${mx.bus}대</span>`;
+    $('mixLegend').innerHTML = items.map(([k, n]) => `<span><i style="background:${R.CAR[k]}"></i>${n} ${(mx[k] / tot * 100).toFixed(0)}%</span>`).join('') + (mx.bus ? `<span><i style="background:${R.CAR.bus}"></i>버스 ${mx.bus}대</span>` : '');
     $('conf').innerHTML = `<b>${baseConf}</b> → <b style="color:${conflicts.sum < baseConf ? '#0f7a55' : conflicts.sum > baseConf ? '#e5483f' : 'inherit'}">${conflicts.sum}</b><small>차들이 서로 엇갈리는 지점 수 (낮을수록 안전)</small>`;
-    $('statBudget').innerHTML = `<b>$${cost().toLocaleString()}</b> / $${F.BUDGET.toLocaleString()}`;
+    $('statBudget').innerHTML = `<b>${won(cost())}</b> / ${won(ST.budget)}`;
   }
 
   /* ---------- 입력 (마우스·터치 공통: Pointer Events) ---------- */
@@ -340,11 +362,15 @@
   });
   cv.addEventListener('pointermove', e => {
     if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (gest && gest.kind === 'pinch') { if (pts.size === 2 && V3) { const d = pinchDist(); if (d > 0) { V3.zoom(gest.d / d); gest.d = d; } } return; }
+    if (gest && gest.kind === 'pinch') { if (pts.size === 2 && V3) { const d = pinchDist(); if (d > 0) { const a = [...pts.values()], r = cv.getBoundingClientRect(); V3.zoom(gest.d / d, (a[0].x + a[1].x) / 2 - r.left, (a[0].y + a[1].y) / 2 - r.top); gest.d = d; } } return; }
     if (gest && gest.kind === 'orbit') {
       if (Math.abs(e.clientX - gest.x0) + Math.abs(e.clientY - gest.y0) > 6) gest.moved = true;
       if (gest.moved && V3) V3.orbit(e.clientX - gest.x, e.clientY - gest.y);
       gest.x = e.clientX; gest.y = e.clientY; return;
+    }
+    if (e.pointerType === 'mouse' && !$('toolInfo').classList.contains('hidden')) {     // 설명 창이 칸을 가리지 않게: 지도로 나가면 닫는다
+      const ir = $('toolInfo').getBoundingClientRect();
+      if (e.clientY < ir.top - 14 || e.clientX < ir.left - 24 || e.clientX > ir.right + 24) hideInfo();
     }
     const p = tileAt(e);
     if (e.pointerType === 'mouse' || gest) setHover(p);
@@ -365,7 +391,7 @@
   cv.addEventListener('pointerup', endPointer);
   cv.addEventListener('pointercancel', endPointer);
   cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !gest) setHover(null); });
-  cv.addEventListener('wheel', e => { if (V3) { V3.zoom(e.deltaY > 0 ? 1.08 : 0.93); e.preventDefault(); } }, { passive: false });
+  cv.addEventListener('wheel', e => { if (V3) { const r = cv.getBoundingClientRect(); V3.zoom(e.deltaY > 0 ? 1.1 : 0.9, e.clientX - r.left, e.clientY - r.top); e.preventDefault(); } }, { passive: false });
   cv.addEventListener('contextmenu', e => e.preventDefault());
   function doUndo() { if (mode === 'edit' && undo.length) { tiles = JSON.parse(undo.pop()); afterEdit(); } }
   function togglePlay() { if (mode === 'edit') startRun(); else startEdit(); }
@@ -380,7 +406,7 @@
   const PS = (window.PIP_SCRIPT || { ask: { button: '', buttonSub: '' } }).ask;
   function showInfo(btn) {
     const T = TOOL[btn.dataset.tool], el = $('toolInfo');
-    el.innerHTML = `<em>$${T.cost}</em><b>${T.nm}</b><p>${T.desc}</p><button class="askBtn" data-ask="${T.id}">${PS.button} <span>${PS.buttonSub}</span></button>`;
+    el.innerHTML = `<em>${won(T.cost)}</em><b>${T.nm}</b><p>${T.desc}</p><button class="askBtn" data-ask="${T.id}">${PS.button} <span>${PS.buttonSub}</span></button>`;
     el.classList.remove('hidden');
     const wr = wrap.getBoundingClientRect(), br = btn.getBoundingClientRect(), tr = $('tray').getBoundingClientRect();
     const cx = br.left + br.width / 2 - wr.left, w = el.offsetWidth, left = Math.max(8, Math.min(vw - w - 8, cx - w / 2));
@@ -388,24 +414,35 @@
   }
   function buildTray() {
     let html = '', g = 0;
-    for (const t of TOOLS) { if (t.g !== g) { html += '<span class="gap"></span>'; g = t.g; } html += `<button class="tool${t.id === tool ? ' sel' : ''}" data-tool="${t.id}" aria-label="${t.nm}">${IC[t.id]}</button>`; }
+    for (const t of TOOLS.filter(t => ST.tools.includes(t.id))) { if (t.g !== g && html) { html += '<span class="gap"></span>'; g = t.g; } html += `<button class="tool${t.id === tool ? ' sel' : ''}" data-tool="${t.id}" aria-label="${t.nm}">${IC[t.id]}</button>`; }
     $('tray').innerHTML = html;
     $('tray').querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => {
       tool = b.dataset.tool;
       $('tray').querySelectorAll('.tool').forEach(x => x.classList.toggle('sel', x === b));
       showInfo(b);
     }));
-    $('tray').addEventListener('scroll', hideInfo);
   }
+  $('tray').addEventListener('scroll', () => hideInfo());
   document.addEventListener('pointerdown', e => { if (!e.target.closest('.tool') && !e.target.closest('#toolInfo')) hideInfo(); }, true);
 
   /* 예시 설계 — 정답 판정용이 아니라 같은 엔진으로 돌려 볼 수 있는 비교용 */
-  const at = (t, x, y) => t[y * W + x];
-  const PRESETS = [
-    t => { at(t, 5, 4).barricade = true; },
-    t => { at(t, 5, 4).bus = true; at(t, 6, 4).bus = true; at(t, 2, 4).overpass = true; at(t, 9, 4).overpass = true; },
-    t => { at(t, 4, 4).round = true; at(t, 7, 4).round = true; at(t, 2, 4).overpass = true; at(t, 9, 4).overpass = true; }
-  ];
+  /* ---------- 스테이지 선택 ---------- */
+  function buildStageUI() {
+    const tab = (st, k) => `<button class="stage${k === stageIdx ? ' active' : ''}${unlocked(k) ? '' : ' locked'}" data-stage="${k}"><b>${st.no}</b>${st.name}${unlocked(k) ? '' : UI.lock.replace('<svg', '<svg class="lk"')}</button>`;
+    $('stages').innerHTML = STAGES.map(tab).join('') + SOON.map(st => `<span class="stage soon"><b>${st.no}</b>${st.name}</span>`).join('');
+    $('stageList').innerHTML = STAGES.map((st, k) => `<button class="stCard${unlocked(k) ? '' : ' locked'}${k === stageIdx ? ' cur' : ''}" data-stage="${k}">
+        <span class="stNo">${st.no}</span><span class="stPlace">${st.place}</span><b>${st.name}</b><span class="stBlurb">${unlocked(k) ? st.blurb : '앞 스테이지에서 별을 하나 받으면 열립니다'}</span>
+        <span class="stStars">${st.goals.map((g, j) => UI.star.replace('<svg', `<svg class="${(j < starsOf(k) ? 'on' : '') + (g.purple ? ' p' : '')}"`)).join('')}</span></button>`).join('') +
+      SOON.map(st => `<div class="stCard soon"><span class="stNo">${st.no}</span><span class="stPlace">${st.place}</span><b>${st.name}</b><span class="stBlurb">준비 중입니다</span></div>`).join('');
+    document.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => {
+      const k = +b.dataset.stage;
+      if (!unlocked(k)) { toast('앞 스테이지에서 별을 하나 받으면 열려요'); return; }
+      $('stageSel').classList.add('hidden'); if (k !== stageIdx) loadStage(k);
+      document.dispatchEvent(new CustomEvent('flow-stage', { detail: k }));
+    });
+  }
+  const openStages = () => { buildStageUI(); $('stageSel').classList.remove('hidden'); };
+
   const openHelp = () => { goalList($('helpGoals'), null, 0); $('help').classList.remove('hidden'); };
   $('btnPlay').onclick = togglePlay;
   $('btnBefore').onclick = startBefore;
@@ -418,12 +455,17 @@
   $('statsClose').onclick = () => $('stats').classList.add('hidden');
   $('btnHelp').onclick = $('btnGoals').onclick = openHelp;
   $('helpClose').onclick = () => $('help').classList.add('hidden');
+  $('btnStages').onclick = $('btnStages2').onclick = openStages; $('stagesClose').onclick = () => $('stageSel').classList.add('hidden');
+  $('resNext').onclick = () => { $('result').classList.add('hidden'); loadStage(stageIdx + 1); document.dispatchEvent(new CustomEvent('flow-stage', { detail: stageIdx })); };
   document.querySelectorAll('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target === m) m.classList.add('hidden'); }));
   $('resEdit').onclick = startEdit;
   $('resClose').onclick = () => $('result').classList.add('hidden');
   $('btnClearHist').onclick = () => { history = []; save(); openStats(); };
-  document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
-    pushUndo(); tiles = F.cloneTiles(base); PRESETS[+b.dataset.preset](tiles); $('stats').classList.add('hidden'); startEdit(); afterEdit();
+  $('presets').addEventListener('click', e => {
+    const b = e.target.closest('[data-preset]'); if (!b) return;
+    pushUndo(); tiles = F.cloneTiles(base);
+    for (const [x, y, id] of ST.presets[+b.dataset.preset].set) { const t = tiles[y * W + x]; if (id === 'bridge' || id === 'tunnel') t[id] = 'H'; else t[id] = true; }
+    $('stats').classList.add('hidden'); startEdit(); afterEdit();
   });
 
   /* ---------- 메인 루프 ---------- */
@@ -448,12 +490,13 @@
     requestAnimationFrame(frame);
   }
 
-  $('hudGoal').textContent = TARGET; $('btnGoals').innerHTML = starRow(best);
-  buildTray(); resize(); startBefore();
-  if (V3) V3.setView('iso', true);
-  if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('900 20px "Wanted Sans"'), document.fonts.load('500 13px "Wanted Sans"')]).then(() => { rebuild3d(); resize(); }).catch(() => {});
+  resize();
+  let first = 0; for (let k = 0; k < STAGES.length; k++) if (unlocked(k)) first = k;     // 열려 있는 마지막 스테이지에서 시작
+  loadStage(first);
+  if (V3) V3.setView(ST.observe ? 'iso' : 'top', true);
+  if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('900 20px "Wanted Sans"'), document.fonts.load('500 13px "Wanted Sans"'), document.fonts.load('400 20px "Do Hyeon"', '가'), document.fonts.load('800 20px "Barlow Condensed"')]).then(() => { rebuild3d(); resize(); }).catch(() => {});
   requestAnimationFrame(frame);
 
-  window.FlowLab = { V3, UI, IC, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, baseM, grade,
+  window.FlowLab = { V3, UI, IC, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, get baseM() { return baseM; }, grade, loadStage, openStages, connected, get stage() { return ST; }, get stageIdx() { return stageIdx; },
     apply: (x, y, id) => { const r = apply(y * W + x, id); afterEdit(); return r; } };
 })();

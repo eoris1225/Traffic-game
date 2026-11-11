@@ -77,6 +77,8 @@
     normal:  { share: 0.70, v0: 1.25, sd: 0.08, T: 0.8,  a: 1.4, b: 4.5, bc: 2.2, tau: 0.12, percep: 1.6,  agg: 1.0, len: 0.26, W: 1 },
     speeder: { share: 0.15, v0: 1.90, sd: 0.12, T: 0.3,  a: 2.2, b: 5.0, bc: 3.0, tau: 0.24, percep: 0.45,  agg: 1.5, len: 0.26, W: 1 },
     novice:  { share: 0.15, v0: 0.78, sd: 0.06, T: 1.2,  a: 0.9, b: 6.0, bc: 2.0, tau: 0.25, percep: 1.6,  agg: 0.8, len: 0.26, W: 1 },
+    tractor: { share: 0,    v0: 0.55, sd: 0.04, T: 1.0,  a: 0.6, b: 4.0, bc: 2.0, tau: 0.15, percep: 1.6,  agg: 0.8, len: 0.30, W: 1 },   // 경운기
+    moto:    { share: 0,    v0: 1.55, sd: 0.10, T: 0.6,  a: 2.0, b: 5.0, bc: 2.6, tau: 0.12, percep: 1.6,  agg: 1.0, len: 0.17, W: 1 },   // 오토바이
     bus:     { share: 0,    v0: 1.05, sd: 0.03, T: 1.0,  a: 0.8, b: 3.5, bc: 1.6, tau: 0.15, percep: 1.8,  agg: 0.8, len: 0.42, W: 20 }
   };
   const KMH = 48;
@@ -105,7 +107,8 @@
       camera: false, bump: false, barricade: false, overpass: false, bridge: null, tunnel: null
     };
   }
-  function parseStage(rows) {
+  function parseStage(rows, terms, noLock) {
+    terms = terms || TERMS;
     const tiles = [];
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const ch = rows[y][x];
@@ -117,14 +120,17 @@
       else if (ch === 'H') t = newTile('house');
       else if (ch === '=') t = newTile('water');
       else if (ch === 'C') t = newTile('site');
+      else if (ch === 'F') t = newTile('field');
+      else if (ch === 'M') t = newTile('mill');
       else {
         t = newTile('grass');
         if (ch === '#') { t.road = true; t.orig = true; }
         else if (ch === 'L') { t.road = true; t.orig = true; t.locked = true; }
         else if (ch === 'X') { t.road = true; t.orig = true; t.locked = true; t.crosswalk = true; }
-        else if (TERMS[ch]) t.term = TERMS[ch];
+        else if (terms[ch]) t.term = terms[ch];
       }
       if (ch === '=') { t.road = true; t.orig = true; t.locked = true; }
+      if (noLock) t.locked = false;
       tiles.push(t);
     }
     return tiles;
@@ -217,6 +223,8 @@
       opt = opt || {};
       this.tiles = cloneTiles(tiles);
       this.seed = opt.seed || 1225;
+      const sg = opt.stage || {};                              // 스테이지별 수요·차종·횡단보도 설정
+      this.cfg = { flows: sg.flows || FLOWS, buses: sg.buses || BUS_LINES, scale: sg.scale || DEMAND_SCALE, mix: sg.mix || [['normal', 0.70], ['speeder', 0.15], ['novice', 0.15]], cw: sg.cw || [CW_CYCLE, CW_WALK] };
       this.rng = makeRng(this.seed ^ 0x9E3779B9);
       this.dt = DT; this.t = 0; this.done = false;
       this.cars = []; this.nextId = 1;
@@ -269,24 +277,25 @@
     buildDemand() {
       const rng = makeRng(this.seed);
       const ev = [];
-      for (const f of FLOWS) {
+      const mix = this.cfg.mix, pickType = r => { let a = 0; for (const m of mix) { a += m[1]; if (r < a) return m[0]; } return mix[mix.length - 1][0]; };
+      for (const f of this.cfg.flows) {
         let t = rng() * 3;
         while (t < DEMAND_END) {
-          const rate = (t < PM_START ? f.am : f.pm) * DEMAND_SCALE;
+          const rate = (t < PM_START ? f.am : f.pm) * this.cfg.scale;
           const r = rng();
-          const type = r < TYPES.normal.share ? 'normal' : r < TYPES.normal.share + TYPES.speeder.share ? 'speeder' : 'novice';
+          const type = pickType(r);
           ev.push({ t, from: f.from, to: f.to, type, z: [gauss(rng), gauss(rng), gauss(rng), gauss(rng)] });
           t += (1 / rate) * (0.55 + 0.9 * rng());
         }
       }
-      for (const b of BUS_LINES)
+      for (const b of this.cfg.buses)
         for (let t = b.start; t < b.until; t += b.every)
           ev.push({ t, from: b.from, to: b.to, type: 'bus', z: [gauss(rng), 0, 0, 0] });
       ev.sort((a, b) => a.t - b.t);
       this.demand = ev; this.demandPtr = 0;
-      this.pending = { S1: [], S2: [], E1: [], E2: [] };
+      this.pending = {}; for (const id in this.termNode) this.pending[id] = [];
       this.totalW = 0; this.totalVeh = ev.length;
-      this.mix = { normal: 0, speeder: 0, novice: 0, bus: 0 };
+      this.mix = {}; for (const k in TYPES) this.mix[k] = 0;
       for (const e of ev) { this.totalW += TYPES[e.type].W; this.mix[e.type]++; }
     }
 
@@ -458,7 +467,7 @@
     cwActive(idx) {
       const t = this.tiles[idx];
       if (!t.crosswalk || t.overpass) return false;
-      return ((this.t + (idx * 3.7) % CW_CYCLE) % CW_CYCLE) < CW_WALK;
+      const cw = this.cfg.cw; return ((this.t + (idx * 3.7) % cw[0]) % cw[0]) < cw[1];
     }
 
     updateControls() {
@@ -682,7 +691,7 @@
       // 통행 제어 노드 진입 판단
       if (this.ctrl[B] && c.s < SB) {
         let ok = this.canEnter(c, A, B);
-        const plain = !tB.signal;
+        const plain = !tB.signal && !tB.round;                    // 신호등·회전교차로에서는 초보도 망설이지 않는다
         if (c.type === 'novice' && plain) {
           if (c.hesNode !== B) {
             c.hesNode = B; c.hesStart = -1;
@@ -697,7 +706,7 @@
         if (!ok) stop(SB - 0.03 - c.len / 2 - (tB.round ? 0.12 : 0) - c.s, tB.signal ? 1.6 : 0);
       }
       // 횡단보도 보행 신호
-      if (B % 3 === 0 && this.cwActive((B / 3) | 0) && c.s <= 0.72) stop(0.70 - c.len / 2 + 0.13 - c.s, 1.6);
+      if (B % 3 === 0 && this.cwActive((B / 3) | 0) && c.s <= 0.80) stop(Math.max(0, 0.70 - c.len / 2 + 0.13 - c.s), 1.6);   // 정지선을 조금 넘겨도 건너는 동안은 선다
       // 사고로 막힌 타일
       if (this.blockedUntil[B] > t && c.s < 0.6) stop(0.55 - c.s, 1.6);
 
@@ -892,7 +901,7 @@
         c.s += c.v * dt * scale;
         const B = c.path[c.i + 1];
         // 초보 운전자 조향 판단 오류 P_err → 교차로 한가운데 급정거
-        if (c.type === 'novice' && before < SB && c.s >= SB && this.ctrl[B] && !this.tileOf(B).signal && c.panicNode !== B) {
+        if (c.type === 'novice' && before < SB && c.s >= SB && this.ctrl[B] && !this.tileOf(B).signal && !this.tileOf(B).round && c.panicNode !== B) {
           c.panicNode = B;
           const p = 0.3 * this.guideFactor(c.path[c.i], B) * (this.tileOf(B).round ? 0.5 : 1);
           if (this.rng() < p) c.panicUntil = t + 1.3;

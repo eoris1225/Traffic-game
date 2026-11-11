@@ -1,10 +1,17 @@
 /* FLOW LAB — 도로 표지판에서 가져온 시각 언어.
    상자는 꼭 필요한 곳에만: 예산 표지판, 도구 트레이, 상태 띠, 그리고 창(결과·수치). 나머지는 글자와 아이콘만. */
+/* 글꼴은 쓰임새에 따라 셋으로 나눈다
+   --sign 표지판·제목(도현) / --num 숫자·금액(Barlow Condensed) / --font 본문·버튼(Wanted Sans) */
+@font-face{font-family:"Do Hyeon";src:url("vendor/fonts/do-hyeon-korean-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;unicode-range:U+1100-11FF,U+3130-318F,U+AC00-D7AF,U+3000-303F}
+@font-face{font-family:"Do Hyeon";src:url("vendor/fonts/do-hyeon-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;unicode-range:U+0000-00FF}
+@font-face{font-family:"Barlow Condensed";src:url("vendor/fonts/barlow-condensed-latin-700-normal.woff2") format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Barlow Condensed";src:url("vendor/fonts/barlow-condensed-latin-800-normal.woff2") format("woff2");font-weight:800;font-display:swap}
 @font-face{font-family:"Wanted Sans";src:url("vendor/fonts/WantedSansVariable.woff2") format("woff2");font-weight:400 1000;font-display:swap}
 :root{
   --ink:#1c1f27; --asphalt:#23262f; --asphalt2:#30343f; --dim:#9a9fae;
   --cream:#f6f3ea; --cream2:#e6e0d0; --mute:#6f7482;
   --green:#0f7a55; --green2:#17a673; --blue:#1d5fbf; --yellow:#ffc928; --red:#e5483f; --orange:#f2a93b; --purple:#8b5cf6;
+  --sign:"Do Hyeon","Wanted Sans",sans-serif; --num:"Barlow Condensed","Wanted Sans",sans-serif;
   --font:"Wanted Sans","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -261,7 +268,7 @@ body.pre #topbar,body.pre #hud,body.pre #caption,body.pre #tray,body.pre #toolIn
 #askCanvas{display:block;width:100%;border-radius:4px;background:#474c78}
 .tape{position:absolute;top:-11px;width:74px;height:24px;background:rgba(255,201,40,.82);box-shadow:0 1px 0 rgba(0,0,0,.15)}
 .tape.a{left:26px;transform:rotate(-5deg)}.tape.b{right:26px;transform:rotate(4deg)}
-#askPip{position:absolute;right:-92px;bottom:-4px;width:230px;transform:scaleX(-1);pointer-events:none;z-index:2}
+#askPip{position:absolute;right:-128px;bottom:-22px;width:310px;transform:scaleX(-1);pointer-events:none;z-index:2}
 #askPip.pop{animation:askPop .34s cubic-bezier(.3,1.5,.5,1)}
 @keyframes askPop{from{transform:scaleX(-1) translateY(26px) rotate(7deg)}}
 #askBubble{position:relative;margin:16px 96px 0 0;background:#fff;color:var(--ink);border-radius:14px;padding:11px 18px 14px;box-shadow:0 5px 0 var(--ink)}
@@ -313,3 +320,45 @@ body.pre #topbar,body.pre #hud,body.pre #caption,body.pre #tray,body.pre #toolIn
   #askPip{width:150px;right:-18px;bottom:auto;top:-70px}#askBubble{margin-right:0}#askBubble p{font-size:14px}#askBubble:before{display:none}#askTitle{font-size:18px}
   #endPip{width:130px;right:-14px;top:-84px}.endCard h2{font-size:28px}
 }
+
+/* --- 스테이지 선택 --- */
+#stages .stage{cursor:pointer}
+#stages .stage.locked,#stages .stage.soon{cursor:default;opacity:.55}
+#stages .stage .lk{width:12px;height:12px}
+.hdrBtn{margin-left:auto;padding:6px 12px;border-radius:7px;font-weight:700;color:var(--cream);background:var(--asphalt2)}
+.hdrBtn:hover{background:#3c4150}
+#stageList{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.stCard{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:16px 16px 14px;border-radius:12px;background:#fff;text-align:left;color:var(--ink);box-shadow:0 4px 0 var(--cream2);transition:transform .08s}
+button.stCard:hover{transform:translateY(-2px)}
+.stCard.cur{box-shadow:0 4px 0 var(--yellow)}
+.stCard .stNo{font-family:var(--num);font-size:40px;font-weight:800;line-height:.9;color:var(--blue)}
+.stCard .stPlace{font-size:11.5px;font-weight:700;color:var(--mute);margin-top:6px}
+.stCard b{font-family:var(--sign);font-size:21px;font-weight:400;line-height:1.2}
+.stCard .stBlurb{font-size:12.5px;color:var(--mute);line-height:1.5;min-height:38px}
+.stCard .stStars{display:flex;gap:2px;margin-top:6px}
+.stCard .stStars svg{width:20px;height:20px;color:#dcd6c5}
+.stCard .stStars svg.on{color:var(--yellow)}.stCard .stStars svg.on.p{color:var(--purple)}
+.stCard.locked,.stCard.soon{background:#efeadd;color:var(--mute);box-shadow:none}
+.stCard.locked .stNo,.stCard.soon .stNo{color:#c3bca9}
+@media (max-width:760px){.hdrBtn{display:none}}
+
+#endBody b.all{display:inline-block;padding:0 6px;font-size:1.25em;color:var(--red);transform:rotate(-2deg);border-bottom:3px double var(--red)}
+
+/* --- 글꼴 배정 --- */
+#budget b{font-family:var(--num);font-weight:800;font-size:27px;letter-spacing:0}
+#budget .of{font-family:var(--num);font-weight:700;font-size:15px}
+.fig b,#hudTime,#hudAcc,#hudArr{font-family:var(--num);font-weight:800;font-size:27px;letter-spacing:0}
+.ib.num{font-family:var(--num);font-size:17px}
+#toolInfo em{font-family:var(--num);font-weight:800;font-size:19px}
+#caption b{font-family:var(--num);font-weight:800;font-size:21px}
+.cmp b,#conf b,#statBudget b{font-family:var(--num);font-weight:800}
+#hist td{font-family:var(--num);font-weight:700;font-size:14px}
+.goals li em{font-family:var(--num);font-weight:800;font-size:15px}
+#resSign,.sheetHead h2,#askTitle,#endTitle{font-family:var(--sign);font-weight:400;letter-spacing:0}
+#resSign{font-size:30px}.sheetHead h2{font-size:27px}
+.tSign h1,.brand h1{font-family:var(--num);font-weight:800;letter-spacing:.03em}
+.tSign h1 b,.brand h1 b{font-weight:700;opacity:.75}
+.tSign p{font-family:var(--sign);font-weight:400;font-size:21px;line-height:1.45}
+.tGo,.cta,#captionBtn{font-family:var(--sign);font-weight:400;font-size:18px;letter-spacing:.01em}
+.tGo{font-size:24px}
+#stages .stage b{font-family:var(--num);font-size:16px}

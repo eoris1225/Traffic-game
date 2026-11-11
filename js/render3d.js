@@ -5,9 +5,9 @@
   'use strict';
   const F = root.FlowSim, W = F.W, H = F.H, DX = F.DX, DY = F.DY;
   const DECK = 0.5, TUN = -0.35;
-  const CARCOL = { normal: 0x4a86d9, speeder: 0xe5483f, novice: 0xffc928, bus: 0x1f9d6b };
+  const CARCOL = { normal: 0x4a86d9, speeder: 0xe5483f, novice: 0xffc928, bus: 0x1f9d6b, tractor: 0xc9502e, moto: 0x3a3f4c };
   const NORMAL_VARIANTS = [0x4a86d9, 0xf6f3ea, 0x3fa7b5, 0x7c8296, 0x5b6fc7];
-  const TERMCOL = { home: 0x4a86d9, factory: 0x8a6fd1, office: 0xf2a93b, port: 0x2fa89a };
+  const TERMCOL = { home: 0x4a86d9, factory: 0x8a6fd1, office: 0xf2a93b, port: 0x2fa89a, market: 0xd9793b };
 
   function create(wrap) {
     const THREE = root.THREE;
@@ -45,6 +45,7 @@
       pave: D(0xd9d3c5, {}, 0xb4b2ae), siteBg: D(0xc7a878), gravel: D(0xcdc4ae), bed: D(0x7b6250), stone: D(0xddd6c6), wood: D(0x8b6a4c),
       fl1: D(0xf3ede0), fl2: D(0xe6c453), fl3: D(0xd98a9a), pond: D(0x7fb0c0, {}, 0x93a6b0), duck: D(0xf5f2ea), beak: D(0xe39a3c),
       hill: D(0x9db59a), hill2: D(0xa9bfae), hill3: D(0x8faa94), boatA: D(0x3f6257), boatB: D(0x8e3f3a), boatC: D(0x2f3b55),
+      meadow: D(0xa9c784, {}, 0xb9b8b2), fieldBg: D(0xb08a62, {}, 0xa5a29b), wheat: D(0xdcc56c), crop: D(0x7fae5c), crop2: D(0x9cc27a), dirt: D(0xcdb890, {}, 0xc4c1b9), hay: D(0xe2c96b), deer: D(0xb07a4a), deer2: D(0xe9dcc4),
       asph: M(0x5a5d68), line: M(0xe9e2cc), iron: M(0x2f5a4e), glow: new THREE.MeshBasicMaterial({ color: 0xffe9a8 }),
       dark: M(0x2b2f3a), glass: M(0x1d2433), white: M(0xf3f1ea), pole: M(0x5b6170), beam: M(0xf2b233), beam2: M(0xd9544a),
       deck: M(0x4b4f5e), orange: M(0xff8a2a), yellow: M(0xffd23f), concrete: M(0xc9c4b6), wall: M(0xe8dfcf), roofR: M(0xb5604c), roofB: M(0x55718f),
@@ -107,19 +108,20 @@
     }
 
     let world = null, env = null, tex = null, hoverMesh = null, amb = [], lastAmb = 0, boats = [];
+    let theme = 'town', mills = [], envMills = [], critters = [], riverCols = [1e9, -1e9];
     let heat = [], signals = [], peds = [], camSweeps = [], walkers = [], envWalkers = [];
     const cars = new Map(), fx = new Map();
     let tilesRef = null, graphRef = null;
     const VIEWS = { top: { yaw: 0, pitch: 1.5, tz: H / 2 + .45 }, iso: { yaw: -0.24, pitch: 0.8, tz: H / 2 + .9 } };
     const cam = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35, touched: false, mode: 'iso' };
-    const tgt = { yaw: -0.24, pitch: 0.9, dist: 18.5, tz: H / 2 + 0.35 };
+    const tgt = { yaw: -0.24, pitch: 0.9, dist: 18.5, tx: W / 2, tz: H / 2 + 0.35 };
     let vw = 1, vh = 1, amt = 1, tAmt = 1, lastNow = 0, hover = null;
     function fitDist(mode) { const a = vw / vh; return mode === 'top' ? Math.max(22, 26 / a) : Math.max(20, 27 / a); }
     function setView(mode, instant) {
       cam.mode = mode; cam.touched = false;
-      const v = VIEWS[mode]; tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tz = v.tz; tgt.dist = fitDist(mode);
+      const v = VIEWS[mode]; tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = W / 2; tgt.tz = v.tz; tgt.dist = fitDist(mode);
       tAmt = mode === 'top' ? 0 : 1;
-      if (instant) { cam.yaw = tgt.yaw; cam.pitch = tgt.pitch; cam.tz = tgt.tz; cam.dist = tgt.dist; amt = tAmt; }
+      if (instant) { cam.yaw = tgt.yaw; cam.pitch = tgt.pitch; cam.tx = tgt.tx; cam.tz = tgt.tz; cam.dist = tgt.dist; amt = tAmt; }
     }
 
     function mesh(geo, mat, x, y, z, sx, sy, sz, parent, shadow) {
@@ -353,6 +355,11 @@
     function walker(run, seed, withDog, parent, list) {
       const g = new THREE.Group(); parent.add(g);
       const p = person(seed, g), w = { g, p, run, pos: run.a + hash(seed * 9.1) * (run.b - run.a), dir: hash(seed * 2.2) < .5 ? 1 : -1, v: .16 + hash(seed * 7.3) * .1, ph: hash(seed) * 6, wait: 0, seed };
+      if (!withDog && hash(seed * 5.5) < .3) {                  // 가족: 아이 손을 잡고, 가끔은 어른 둘이 함께
+        const kid = person(seed + 41, g); kid.scale.setScalar(.72); kid.position.set(-.012, 0, .034); w.kin = [kid];
+        if (hash(seed * 8.3) < .45) { const ad = person(seed + 77, g); ad.position.set(-.004, 0, .07); w.kin.push(ad); }
+        w.v *= .8;
+      }
       if (withDog) {
         w.dog = dog(seed, g); w.dog.position.set(.115, 0, .028); w.v *= .85;
         const lead = mesh(G.box, mats.dark, .066, .066, .026, .1, .003, .003, g, false); lead.rotation.z = -.42;
@@ -364,13 +371,15 @@
         if (w.wait > 0) { w.wait -= dt; if (w.wait <= 0 && w.turn) { w.dir = -w.dir; w.turn = false; } }
         else {
           w.pos += w.dir * w.v * dt; w.ph += dt * w.v * 60;
-          if (w.pos > w.run.b) { w.pos = w.run.b; w.wait = .6 + hash(w.seed + t) * 1.5; w.turn = true; }
+          if (w.run.wrap) { if (w.pos > w.run.b) w.pos = w.run.a; else if (w.pos < w.run.a) w.pos = w.run.b; if (w.dog && hash(Math.floor(t * .5) + w.seed * 13) < .04) w.wait = 1.6; }   // 지나가는 사람: 끝까지 걸어 화면 밖으로 나간다
+          else if (w.pos > w.run.b) { w.pos = w.run.b; w.wait = .6 + hash(w.seed + t) * 1.5; w.turn = true; }
           else if (w.pos < w.run.a) { w.pos = w.run.a; w.wait = .6 + hash(w.seed + t) * 1.5; w.turn = true; }
           else if (w.dog && hash(Math.floor(t * .5) + w.seed * 13) < .06) w.wait = 1.6;   // 강아지가 냄새를 맡는다
         }
         const moving = w.wait <= 0, sw = moving ? Math.sin(w.ph) * .55 : 0;
         w.p.userData.legs[0].rotation.z = sw; w.p.userData.legs[1].rotation.z = -sw;
         w.p.position.y = moving ? Math.abs(Math.sin(w.ph)) * .004 : 0;
+        if (w.kin) for (const k of w.kin) { k.userData.legs[0].rotation.z = -sw; k.userData.legs[1].rotation.z = sw; }
         if (w.dog) { w.dog.userData.tail.rotation.x = Math.sin(t * 14 + w.seed) * .5; w.dog.position.y = moving ? Math.abs(Math.sin(w.ph * 1.7)) * .006 : 0; w.dog.rotation.z = moving ? 0 : -.25; }
         if (w.run.horiz) { w.g.position.set(w.pos, 0, w.run.c); w.g.rotation.y = w.dir > 0 ? 0 : Math.PI; }
         else { w.g.position.set(w.run.c, 0, w.pos); w.g.rotation.y = w.dir > 0 ? -Math.PI / 2 : Math.PI / 2; }
@@ -398,7 +407,80 @@
     }
 
     /* 격자 바깥의 동네: 한 번만 만든다 (주택가·공원·상가 조금·강·언덕) */
+    /* ── 시골 ── */
+    function cropRows(b, x, z, seed, w, d) {                   // 밭: 이랑과 작물
+      const kind = Math.floor(hash(seed * 2.7) * 3), vert = hash(seed * 4.3) < .5, n = 5;
+      for (let k = 0; k < n; k++) {
+        const o = (k + .5) / n - .5, m = kind === 0 ? mats.wheat : kind === 1 ? mats.crop : (k % 2 ? mats.crop2 : mats.crop);
+        if (vert) b.add(G.box, m, x + .5 + o * w, .022, z + .5, w / n * .55, kind === 0 ? .05 : .03, d * .9, 0, 0, 0, false);
+        else b.add(G.box, m, x + .5, .022, z + .5 + o * d, w * .9, kind === 0 ? .05 : .03, d / n * .55, 0, 0, 0, false);
+      }
+    }
+    function hayBale(b, x, z, ry) { b.add(G.cyl10, mats.hay, x, .035, z, .04, .07, .04, ry, 0, Math.PI / 2); }
+    function meadowTile(b, x, z, seed) {
+      const k = hash(seed * 3.3), r = n => hash(seed * 5.1 + n);
+      if (k < .2) tree(b, x + .25 + r(1) * .5, z + .25 + r(2) * .5, .8 + r(3) * .35);
+      else if (k < .34) { const fm = [mats.fl1, mats.fl2, mats.fl3]; for (let n = 0; n < 9; n++) b.add(G.box, fm[n % 3], x + .12 + r(n) * .76, .014, z + .12 + r(n + 20) * .76, .02, .02, .02, n, 0, 0, false); }
+      else if (k < .42) { hayBale(b, x + .35, z + .4, .3); hayBale(b, x + .6, z + .62, 1.2); }
+      else if (k < .5) { bush(b, x + .3, z + .6, 1.1); b.add(G.ico, mats.rock, x + .66, .035, z + .38, .09, .06, .07, k * 20); }
+    }
+    function windmill(parent, x, z, s, list) {                 // 풍차: 날개는 따로 돌린다
+      const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); parent.add(g);
+      mesh(G.cyl6, mats.wall, 0, .3, 0, .13, .6, .13, g); mesh(G.cone6, mats.roofR, 0, .68, 0, .16, .18, .16, g);
+      mesh(G.box, mats.wood, 0, .12, .13, .07, .14, .02, g, false);
+      const hub = new THREE.Group(); hub.position.set(0, .6, .16); g.add(hub);
+      for (let k = 0; k < 4; k++) { const bl = new THREE.Group(); bl.rotation.z = k * Math.PI / 2; hub.add(bl); mesh(G.box, mats.wood, 0, .2, 0, .02, .4, .015, bl); mesh(G.box, mats.white, .045, .24, 0, .07, .28, .008, bl); }
+      list.push(hub);
+    }
+    function deerMesh(parent) {
+      const g = new THREE.Group(); parent.add(g);
+      mesh(G.box, mats.deer, 0, .09, 0, .15, .07, .06, g); mesh(G.box, mats.deer, .09, .14, 0, .04, .09, .04, g); mesh(G.box, mats.deer, .12, .19, 0, .07, .04, .045, g);
+      mesh(G.box, mats.deer2, -.08, .1, 0, .02, .04, .04, g, false);
+      for (const sx of [-.05, .05]) for (const sz of [-.02, .02]) mesh(G.box, mats.deer, sx, .03, sz, .015, .07, .015, g);
+      for (const sz of [-.018, .018]) mesh(G.box, mats.deer, .1, .225, sz, .012, .03, .012, g, false);
+      return g;
+    }
+    function buildEnvRural(tiles) {
+      env = new THREE.Group(); scene.add(env);
+      const eb = Batch(), E = 48, quad = (arr, x0, z0, x1, z1, y) => arr.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
+      const geo = arr => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); return g; };
+      const flat = (arr, mat) => { const m = new THREE.Mesh(geo(arr), mat); m.receiveShadow = true; env.add(m); };
+      riverCols = [1e9, -1e9];
+      flat((a => { quad(a, -E, -E, W + E, H + E, -.012); return a; })([]), mats.meadow);
+      // 밭 사이로 난 좁은 흙길
+      const HS = [-2.5, H + 2.5, -7.5], VS = [-3.5, W + 3.5], dirt = [], soil = [];
+      for (const z of HS) quad(dirt, -E, z - .11, W + E, z + .11, .003);
+      for (const x of VS) quad(dirt, x - .11, -E, x + .11, H + E, .003);
+      // 격자 안 도로가 바깥 흙길과 이어지는 것처럼 보이도록 양 끝에 짧은 길
+      for (let i = 0; i < W * H; i++) if (tiles[i].term) { const x = i % W, z = (i / W) | 0; if (x === 0) quad(dirt, -3.5, z + .38, 0, z + .62, .003); if (x === W - 1) quad(dirt, W, z + .38, W + 3.5, z + .62, .003); }
+      const onLane = (cx, cz) => HS.some(v => cz === Math.floor(v)) || VS.some(v => cx === Math.floor(v));
+      for (let cz = -13; cz < H + 11; cz++) for (let cx = -15; cx < W + 15; cx++) {
+        if (cx >= 0 && cx < W && cz >= 0 && cz < H) continue;
+        if (onLane(cx, cz)) continue;
+        const k = cx * 31.7 + cz * 17.3, r = hash(k), r2 = hash(k + 3), n = vnoise(cx / 2.4 + 9, cz / 2.4 + 4);
+        if (n < .46) { quad(soil, cx + .04, cz + .04, cx + .96, cz + .96, .001); cropRows(eb, cx, cz, Math.floor(n * 9) + Math.floor(cx / 3) * 7 + Math.floor(cz / 3) * 13, .9, .9); }
+        else if (n > .7 && r < .32) { houseTile(eb, POUT, cx, cz, k); }
+        else if (r < .22) { tree(eb, cx + .3 + r2 * .4, cz + .4, .9 + r2 * .5); if (r2 < .5) tree(eb, cx + .7, cz + .7, .8); }
+        else if (r < .27) { hayBale(eb, cx + .3, cz + .4, r * 9); hayBale(eb, cx + .55, cz + .6, r2 * 9); hayBale(eb, cx + .5, cz + .3, 1); }
+        else if (r < .3) bush(eb, cx + .5, cz + .5, 1.2);
+      }
+      flat(soil, mats.fieldBg); flat(dirt, mats.dirt);
+      for (let k = 0; k < 18; k++) { const r = 7 + hash(k * 2.3) * 7, hh = 2.2 + hash(k * 4.1) * 3.4; eb.add(G.ico1, [mats.hill, mats.hill2, mats.hill3][k % 3], -30 + k * 4.2 + hash(k) * 2, -.3, -24 - hash(k * 7.7) * 10, r, hh, r * .8, k, 0, 0, false); }
+      for (let k = 0; k < 7; k++) for (const sx of [-1, 1]) { const r = 6 + hash(k * 9.1 + sx) * 5, hh = 2 + hash(k * 3.3 + sx) * 3; eb.add(G.ico1, k % 2 ? mats.hill : mats.hill3, W / 2 + sx * (33 + hash(k + sx) * 6), -.3, -18 + k * 6.5, r * .8, hh, r, k * 2, 0, 0, false); }
+      eb.flush(env);
+      envMills = []; windmill(env, -5.2, 1.5, 1.5, envMills); windmill(env, W + 5.4, 6.2, 1.3, envMills); windmill(env, 4.5, -5.5, 1.7, envMills);
+      // 흙길의 경운기·오토바이, 걸어 다니는 사람들, 들판의 고라니
+      amb = []; envWalkers = []; critters = [];
+      let id = 0;
+      const add = (type, horiz, c, dir, pos, v) => { const m = carMesh({ type, id: id++, len: type === 'moto' ? .17 : .3 }, env); amb.push({ m, horiz, c, dir, pos, v, off: .0 }); };
+      add('tractor', true, HS[1], 1, -9, .4); add('moto', true, HS[1], -1, 14, 1.3); add('tractor', false, VS[1], 1, -4, .38); add('moto', true, HS[0], 1, -6, 1.2); add('tractor', true, HS[2], -1, 8, .36);
+      let ws = 300;
+      for (const z of HS.slice(0, 2)) for (let k = 0; k < 3; k++) { ws++; walker({ horiz: true, c: z + .2, a: -15, b: W + 15, wrap: true }, ws, hash(ws) < .5, env, envWalkers); }
+      for (const [x, z] of [[-2, 5.5], [W + 1.6, 1.5], [6, H + 1.2], [2.5, -1.4]]) critters.push({ g: deerMesh(env), x, z, a: hash(x * 3 + z) * 6, t: hash(x + z * 5) * 4, hop: 0 });
+    }
+
     function buildEnv(tiles) {
+      if (theme === 'rural') return buildEnvRural(tiles);
       env = new THREE.Group(); scene.add(env);
       const eb = Batch();
       const E = 48, quad = (arr, x0, z0, x1, z1, y) => arr.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
@@ -407,6 +489,7 @@
       let wx0 = Infinity, wx1 = -Infinity;
       for (let x = 0; x < W; x++) if (tiles[x].base === 'water') { wx0 = Math.min(wx0, x); wx1 = Math.max(wx1, x + 1); }
       const river = wx0 !== Infinity, ground = [];
+      riverCols = [wx0, wx1]; envMills = []; critters = [];
       if (!river) quad(ground, -E, -E, W + E, H + E, -.012);
       else {
         quad(ground, -E, -E, wx0, H + E, -.012); quad(ground, wx1, -E, W + E, H + E, -.012);
@@ -492,15 +575,15 @@
       for (const z of HS) for (let k = 0; k < 5; k++) add(true, z, k % 2 ? 1 : -1, -14 + k * 7.3 + hash(k + z) * 2);
       for (const x of VS) for (let k = 0; k < 4; k++) add(false, x, k % 2 ? 1 : -1, -10 + k * 6.7 + hash(k + x) * 2);
       let ws = 100;
-      for (const z of HS.slice(0, 2)) for (const s of [-1, 1]) for (let k = 0; k < 4; k++) { ws++; walker({ horiz: true, c: z + s * .48, a: -9 + k * 7, b: -3 + k * 7 }, ws, hash(ws) < .35, env, envWalkers); }
-      for (const x of VS.slice(0, 2)) for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { ws++; walker({ horiz: false, c: x + s * .48, a: -1 + k * 5, b: 4 + k * 5 }, ws, hash(ws) < .35, env, envWalkers); }
+      for (const z of HS.slice(0, 2)) for (const s of [-1, 1]) for (let k = 0; k < 4; k++) { ws++; walker({ horiz: true, c: z + s * .48, a: -15, b: W + 15, wrap: true }, ws, hash(ws) < .35, env, envWalkers); }
+      for (const x of VS.slice(0, 2)) for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { ws++; walker({ horiz: false, c: x + s * .48, a: -12, b: H + 12, wrap: true }, ws, hash(ws) < .35, env, envWalkers); }
     }
 
     function label(text, color, x, y, z) {                    // 도로 표지판 모양 이름표
       const c = document.createElement('canvas'); c.width = 256; c.height = 112;
       const g = c.getContext('2d');
       const rrp = (x0, y0, w, h, r) => { g.beginPath(); g.moveTo(x0 + r, y0); g.arcTo(x0 + w, y0, x0 + w, y0 + h, r); g.arcTo(x0 + w, y0 + h, x0, y0 + h, r); g.arcTo(x0, y0 + h, x0, y0, r); g.arcTo(x0, y0, x0 + w, y0, r); g.closePath(); };
-      g.font = '900 54px "Wanted Sans",sans-serif';
+      g.font = '400 58px "Do Hyeon","Wanted Sans",sans-serif';
       const w = Math.min(240, g.measureText(text).width + 56), x0 = (256 - w) / 2;
       g.fillStyle = '#1c1f27'; rrp(x0, 14, w, 88, 18); g.fill();
       g.fillStyle = color; rrp(x0, 6, w, 88, 18); g.fill();
@@ -512,7 +595,16 @@
     function building(b, t, x, z) {
       const kind = t.term.kind, col = TERMCOL[kind], cm = TERMMAT[kind] || (TERMMAT[kind] = M(col));
       const cx = x + .5, cz = z + .5;
-      if (kind === 'home') {
+      if (kind === 'market') {                                 // 장터: 천막 좌판
+        const aw = [0xc8433c, 0x3f6f62, 0xd8a941];
+        for (let k = 0; k < 3; k++) {
+          const sx = cx - .26 + k * .26, sz = cz - .1 + (k % 2) * .2;
+          mesh(G.box, mats.wood, sx, .06, sz, .2, .12, .16); mesh(G.box, M(aw[k]), sx, .21, sz, .26, .03, .22);
+          for (const dx of [-.11, .11]) mesh(G.box, mats.wood, sx + dx, .13, sz + .09, .015, .2, .015, world, false);
+          mesh(G.box, k % 2 ? mats.fl2 : mats.red, sx, .135, sz, .14, .03, .1, world, false);
+        }
+        mesh(G.box, mats.hay, cx + .3, .04, cz - .32, .12, .08, .1); tree(b, cx - .34, cz + .34, .7, 0);
+      } else if (kind === 'home') {
         house(b, PIN, cx - .2, cz - .2, .32, .26, .2, 0, 1); house(b, PIN, cx + .2, cz + .02, .3, .25, .16, 3, 0, { door: .07 }); house(b, PIN, cx - .2, cz + .28, .3, .22, .15, 2, 1, { noChimney: true });
         tree(b, cx + .28, cz - .3, .7, 0); hedge(b, cx + .06, cz + .42, cx + .42, cz + .42);
       } else if (kind === 'factory') {
@@ -562,24 +654,27 @@
     function build(tiles, graph, opt) {
       tilesRef = tiles; graphRef = graph; hover = null;
       if (world) { scene.remove(world); world.traverse(o => { if (o.geometry && !Object.values(G).includes(o.geometry)) o.geometry.dispose(); if (o.material && o.material.map && o.material.map !== tex) { o.material.map.dispose(); } }); }
-      if (!env) buildEnv(tiles);
       world = new THREE.Group(); scene.add(world);
+      if (!env) buildEnv(tiles);
       heat = []; signals = []; peds = []; camSweeps = []; walkers = [];
       cars.clear(); fx.clear();
       const wb = Batch();
 
       // 지면 텍스처: 2D 렌더러로 도로·노면 표시를 그려 그대로 입힌다
       const TP = 128, tc = document.createElement('canvas'); tc.width = W * TP; tc.height = H * TP;
-      root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: opt && opt.edit ? 'edit' : 'tex', theme: 'poly', groundOnly: true, now: 0 });
+      root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: opt && opt.edit ? 'edit' : 'tex', theme: 'poly', groundOnly: true, noSidewalk: theme === 'rural', now: 0 });
       if (tex) tex.dispose();
       tex = new THREE.CanvasTexture(tc); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [], pave: [], siteBg: [], garden: [] }, side = [], side2 = [];
-      const GROUND = { rock: 'rockBg', park: 'parkBg', bldg: 'pave', site: 'siteBg', house: 'garden' };
-      const isLand = (x, y) => !(x >= 0 && y >= 0 && x < W && y < H) || tiles[y * W + x].base !== 'water';
+      const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [], pave: [], siteBg: [], garden: [], fieldBg: [], pond: [], meadow: [] }, side = [], side2 = [];
+      mills = [];
+      const inRiver = x => x >= riverCols[0] && x < riverCols[1], pondAt = (x, y) => tiles[y * W + x].base === 'water' && !inRiver(x);
+      const GROUND = { rock: 'rockBg', park: 'parkBg', bldg: 'pave', site: 'siteBg', house: 'garden', field: 'fieldBg' };
+      const isLand = (x, y) => !(x >= 0 && y >= 0 && x < W && y < H) || tiles[y * W + x].base !== 'water' || pondAt(x, y);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const t = tiles[y * W + x];
-        if (t.base === 'water') continue;
-        quads[GROUND[t.base] || ((x + y) % 2 ? 'grassA' : 'grassB')].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
+        if (t.base === 'water' && !pondAt(x, y)) continue;
+        if (t.base === 'water') { quads.pond.push(x, .004, y, x, .004, y + 1, x + 1, .004, y + 1, x, .004, y, x + 1, .004, y + 1, x + 1, .004, y); continue; }   // 연못
+        quads[GROUND[t.base] || (theme === 'rural' ? 'meadow' : (x + y) % 2 ? 'grassA' : 'grassB')].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
         for (let d = 0; d < 4; d++) {
           if (isLand(x + DX[d], y + DY[d])) continue;
           const c = [[x, y, x + 1, y], [x + 1, y, x + 1, y + 1], [x + 1, y + 1, x, y + 1], [x, y + 1, x, y]][d];
@@ -626,8 +721,12 @@
           construction(x, z, i, !(x > 0 && tiles[i - 1].base === 'site'));
         } else if (t.base === 'park') {
           if (!t.tunnel && !t.bridge) parkTile(wb, x, z, i, !(x > 0 && tiles[i - 1].base === 'park'));
+        } else if (t.base === 'field') {
+          cropRows(wb, x, z, i + 3, .92, .92);
+        } else if (t.base === 'mill') {
+          windmill(world, cx, cz, 1.25, mills);
         } else if (t.base === 'grass' && free) {
-          lotTile(wb, PIN, x, z, i + 1);
+          if (theme === 'rural') meadowTile(wb, x, z, i + 1); else lotTile(wb, PIN, x, z, i + 1);
         }
         if (t.term) building(wb, t, x, z);
         const a = ARM[i] = arms(i), vert = (a[0] || a[2]) && !(a[1] || a[3]);
@@ -637,7 +736,11 @@
           hp.position.set(cx, .012, cz); hp.scale.set(.8, 1, .8); hp.renderOrder = 2; world.add(hp); heat.push({ m: hp, i });
           if (t.base === 'water') riverBridge(wb, vert ? z : x, vert ? z + 1 : x + 1, vert ? cx : cz, .92, vert);
           if (t.round) { wb.add(G.cyl10, mats.stone, cx, .02, cz, .15, .04, .15); wb.add(G.cyl10, mats.leaf3, cx, .035, cz, .125, .04, .125); tree(wb, cx, cz, .55, 0); }
-          if (t.bump) { const b = mesh(G.box, mats.yellow, cx + (graph.ctrl[i * 3] ? .36 : 0), .015, cz, .1, .035, .54); if (vert) { b.rotation.y = Math.PI / 2; b.position.set(cx, .015, cz); } }
+          if (t.bump) {                                             // 방지턱: 둥근 턱 + 노랑·검정 줄무늬 + 경고 표지
+            const g = new THREE.Group(); g.position.set(cx + (!vert && graph.ctrl[i * 3] ? .36 : 0), 0, cz + (vert && graph.ctrl[i * 3] ? .36 : 0)); if (vert) g.rotation.y = Math.PI / 2; world.add(g);
+            for (let k = 0; k < 6; k++) { mesh(G.box, k % 2 ? mats.dark : mats.yellow, 0, .014, -.225 + k * .09, .13, .028, .09, g); mesh(G.box, k % 2 ? mats.dark : mats.yellow, 0, .03, -.225 + k * .09, .07, .014, .09, g, false); }
+            mesh(G.box, mats.pole, 0, .13, .37, .014, .26, .014, g); const sg = mesh(G.box, mats.yellow, 0, .27, .37, .1, .1, .012, g); sg.rotation.z = Math.PI / 4; mesh(G.box, mats.dark, 0, .262, .378, .05, .018, .004, g, false);
+          }
           if (t.barricade) {
             const grp = new THREE.Group(); grp.position.set(cx, 0, cz); if (!vert) grp.rotation.y = Math.PI / 2; world.add(grp);
             for (const s of [-.1, .1]) { mesh(G.box, mats.orange, 0, .13, s, .66, .07, .03, grp); mesh(G.box, mats.white, -.16, .13, s, .1, .072, .032, grp); mesh(G.box, mats.white, .16, .13, s, .1, .072, .032, grp); mesh(G.box, mats.pole, -.3, .07, s, .03, .14, .03, grp); mesh(G.box, mats.pole, .3, .07, s, .03, .14, .03, grp); }
@@ -730,6 +833,19 @@
     function carMesh(c, parent) {
       const g = new THREE.Group(), col = c.type === 'normal' ? NORMAL_VARIANTS[c.id % NORMAL_VARIANTS.length] : CARCOL[c.type], bm = M(col), L = c.len;
       g.scale.setScalar(1.18);
+      if (c.type === 'tractor') {                                // 경운기: 빨간 몸통 + 짐칸
+        mesh(G.box, bm, .07, .075, 0, .13, .07, .09, g); mesh(G.box, mats.dark, .15, .09, 0, .04, .04, .07, g); mesh(G.box, mats.pole, .1, .14, .03, .012, .08, .012, g, false);
+        mesh(G.box, mats.wood, -.08, .07, 0, .15, .05, .12, g); mesh(G.box, mats.hay, -.08, .11, 0, .12, .04, .1, g);
+        mesh(G.box, mats.skin, .0, .16, 0, .035, .035, .035, g, false); mesh(G.box, COAT[c.id % COAT.length], .0, .12, 0, .04, .05, .05, g, false);
+        for (const sz of [-1, 1]) { mesh(G.cyl10, mats.dark, .09, .04, sz * .06, .04, .025, .04, g).rotation.x = Math.PI / 2; mesh(G.cyl6, mats.dark, -.09, .03, sz * .07, .03, .02, .03, g).rotation.x = Math.PI / 2; }
+        g.userData.body = bm; (parent || world).add(g); return g;
+      }
+      if (c.type === 'moto') {                                   // 오토바이
+        mesh(G.box, bm, 0, .06, 0, .13, .035, .035, g); mesh(G.box, M([0xd9793b, 0x4a86d9, 0x2fa89a][c.id % 3]), -.01, .095, 0, .05, .06, .05, g); mesh(G.ico, mats.white, .0, .145, 0, .024, .024, .024, g, false);
+        mesh(G.box, mats.pole, .05, .09, 0, .012, .05, .07, g, false);
+        for (const sx of [-.06, .06]) mesh(G.cyl10, mats.dark, sx, .03, 0, .03, .014, .03, g).rotation.x = Math.PI / 2;
+        g.userData.body = bm; (parent || world).add(g); return g;
+      }
       if (c.type === 'bus') {
         mesh(G.box, bm, 0, .1, 0, L, .13, .15, g); mesh(G.box, mats.glass, 0, .125, 0, L * .9, .045, .155, g); mesh(G.box, mats.white, 0, .17, 0, L * .96, .02, .14, g);
       } else {
@@ -756,7 +872,7 @@
     function applyCam(now) {
       const dt = Math.min(.1, Math.max(0, (now - lastNow) / 1000)); lastNow = now;
       const k = 1 - Math.exp(-dt * 4.5);
-      cam.yaw += (tgt.yaw - cam.yaw) * k; cam.pitch += (tgt.pitch - cam.pitch) * k; cam.dist += (tgt.dist - cam.dist) * k; cam.tz += (tgt.tz - cam.tz) * k;
+      cam.yaw += (tgt.yaw - cam.yaw) * k; cam.pitch += (tgt.pitch - cam.pitch) * k; cam.dist += (tgt.dist - cam.dist) * k; cam.tx += (tgt.tx - cam.tx) * k; cam.tz += (tgt.tz - cam.tz) * k;
       if (Math.abs(tAmt - amt) > .002) { amt += (tAmt - amt) * Math.min(1, dt * 3.2); for (const d of decor) d.m.color.copy(cA.copy(d.g).lerp(d.c, amt)); }
       const yaw = cam.yaw + ((cam.touched || cam.mode === 'top') ? 0 : Math.sin(now * 0.00012) * 0.07 * amt);
       const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
@@ -777,6 +893,14 @@
         else { c.m.position.set(c.c - c.dir * .15, 0, c.pos); c.m.rotation.y = c.dir > 0 ? -Math.PI / 2 : Math.PI / 2; }
       }
       stepWalkers(envWalkers, adt, t); stepWalkers(walkers, adt, t);
+      for (const h of mills) h.rotation.z = t * .9; for (const h of envMills) h.rotation.z = t * .7;
+      for (const d of critters) {                                // 고라니: 잠깐 서 있다가 몇 번 껑충 뛴다
+        d.t -= adt;
+        if (d.t < 0) { d.hop = 3 + Math.floor(hash(d.x + t) * 4); d.a += (hash(t + d.z) - .5) * 2.4; d.t = 2.5 + hash(t * 3 + d.x) * 5; }
+        if (d.hop > 0) { d.ph = (d.ph || 0) + adt * 5; d.x += Math.cos(d.a) * adt * .5; d.z += Math.sin(d.a) * adt * .5; if (d.ph > Math.PI) { d.ph = 0; d.hop--; } }
+        if (d.x > -1 && d.x < W + 1 && d.z > -1 && d.z < H + 1) d.a += Math.PI;                 // 도로 구역 안으로는 들어오지 않는다
+        d.g.position.set(d.x, d.hop > 0 ? Math.sin(d.ph || 0) * .07 : 0, d.z); d.g.rotation.y = -d.a;
+      }
       for (const b of boats) { b.position.z -= adt * .22; if (b.position.z < -16) b.position.z = H + 13; b.position.y = -.3 + Math.sin(t * 1.3) * .004; }
       for (const pd of peds) {                                  // 횡단보도 / 육교를 건너는 사람들
         const active = pd.over || (!!sim && sim.cwActive(pd.idx));
@@ -839,6 +963,12 @@
     const v3 = new THREE.Vector3(), ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     return {
       canvas, build, update, nodeH, carH, setView,
+      /* 스테이지 배경(도시/시골)을 바꾼다. 다음 build 때 주변 풍경을 새로 만든다 */
+      setTheme(th) {
+        th = th || 'town'; if (th === theme && env) return; theme = th;
+        if (env) { scene.remove(env); env.traverse(o => { if (o.geometry && !Object.values(G).includes(o.geometry)) o.geometry.dispose(); }); env = null; }
+        amb = []; envWalkers = []; boats = []; envMills = []; critters = [];
+      },
       get colorAmt() { return amt; },
       resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (!cam.touched) tgt.dist = fitDist(cam.mode); },
       project(x, y, h) { v3.set(x, h || 0, y).project(camera); return [(v3.x + 1) / 2 * vw, (1 - v3.y) / 2 * vh]; },
@@ -846,8 +976,15 @@
       pick(px, py) { ndc.set(px / vw * 2 - 1, 1 - py / vh * 2); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, v3) ? [v3.x, v3.z] : null; },
       setHover(h) { hover = h; },
       orbit(dx, dy) { if (cam.mode !== 'iso') return; cam.touched = true; tgt.yaw -= dx * 0.006; tgt.pitch = Math.max(0.35, Math.min(1.45, tgt.pitch + dy * 0.005)); },
-      zoom(f) { cam.touched = true; tgt.dist = Math.max(5, Math.min(36, tgt.dist * f)); },
-      look(x, z, dist, yaw, pitch) { cam.touched = true; cam.tx = x; tgt.tz = cam.tz = z; if (dist) tgt.dist = cam.dist = dist; if (yaw !== undefined) tgt.yaw = cam.yaw = yaw; if (pitch !== undefined) tgt.pitch = cam.pitch = pitch; },
+      /* 확대·축소. (px, py) 를 주면 그 지점을 중심으로 당긴다 */
+      zoom(f, px, py) {
+        cam.touched = true;
+        const nd = Math.max(5, Math.min(36, tgt.dist * f)), k = nd / tgt.dist; tgt.dist = nd;
+        if (px === undefined || k === 1) return;
+        const p = this.pick(px, py); if (!p) return;
+        tgt.tx = Math.max(-2, Math.min(W + 2, p[0] + (tgt.tx - p[0]) * k)); tgt.tz = Math.max(-2, Math.min(H + 3, p[1] + (tgt.tz - p[1]) * k));
+      },
+      look(x, z, dist, yaw, pitch) { cam.touched = true; tgt.tx = cam.tx = x; tgt.tz = cam.tz = z; if (dist) tgt.dist = cam.dist = dist; if (yaw !== undefined) tgt.yaw = cam.yaw = yaw; if (pitch !== undefined) tgt.pitch = cam.pitch = pitch; },
       show(on) { canvas.style.display = on ? 'block' : 'none'; }
     };
   }

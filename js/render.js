@@ -17,7 +17,7 @@
     poly: { grassA: '#86bf6b', grassB: '#8cc671', grid: 'rgba(0,0,0,0)', water: '#4f8fc0', road: '#555965', roadEdge: '#a9a496', rockBg: '#9aa08f', park: '#74b360' }
   };
   let C = BASE;
-  const CAR = { normal: '#4da3ff', speeder: '#ff4d5e', novice: '#ffd84a', bus: '#36f1a0' };
+  const CAR = { normal: '#4da3ff', speeder: '#ff4d5e', novice: '#ffd84a', bus: '#36f1a0', tractor: '#d9793b', moto: '#b58bff' };
   const TERM = {
     home: { c: '#4da3ff', label: '주거단지' }, factory: { c: '#b58bff', label: '산업단지' },
     office: { c: '#ffa63d', label: '오피스' }, port: { c: '#36e0c8', label: '물류항' }
@@ -121,13 +121,22 @@
       const n = a.filter(Boolean).length;
       rr(ctx, x - w / 2, y - w / 2, w, w, n <= 1 ? w * .3 : w * .18); ctx.fill();
       for (let d = 0; d < 4; d++) if (a[d]) {
+        const nt = tiles[i + [-W, 1, W, -1][d]];
+        if (nt && nt.road && roadW(nt) < roadW(t) - .01) {       // 넓은 도로가 좁은 도로와 만나는 곳: 사다리꼴로 좁아진다
+          const wn = roadW(nt) + grow, ux = DX[d], uy = DY[d], px = -uy, py = ux;
+          ctx.beginPath();
+          ctx.moveTo(x + px * w / 2, y + py * w / 2); ctx.lineTo(x + ux * .18 + px * w / 2, y + uy * .18 + py * w / 2);
+          ctx.lineTo(x + ux * .5 + px * wn / 2, y + uy * .5 + py * wn / 2); ctx.lineTo(x + ux * .5 - px * wn / 2, y + uy * .5 - py * wn / 2);
+          ctx.lineTo(x + ux * .18 - px * w / 2, y + uy * .18 - py * w / 2); ctx.lineTo(x - px * w / 2, y - py * w / 2); ctx.closePath(); ctx.fill();
+          continue;
+        }
         if (d === 0) ctx.fillRect(x - w / 2, y - .5, w, .5);
         else if (d === 1) ctx.fillRect(x, y - w / 2, .5, w);
         else if (d === 2) ctx.fillRect(x - w / 2, y, w, .5);
         else ctx.fillRect(x - .5, y - w / 2, .5, w);
       }
     };
-    if (G) for (let i = 0; i < W * H; i++) { const t = tiles[i]; if (t.road && !t.wide) drawRoadShape(i, 0.27, '#d3cdbf'); }   // 보도
+    if (G && !st.noSidewalk) for (let i = 0; i < W * H; i++) { const t = tiles[i]; if (t.road && !t.wide) drawRoadShape(i, 0.27, '#d3cdbf'); }   // 보도
     for (let i = 0; i < W * H; i++) { const t = tiles[i]; if (t.road) drawRoadShape(i, 0.07, (t.locked && (!G || st.mode === 'edit')) ? 'rgba(255,77,109,.85)' : C.roadEdge); }
     for (let i = 0; i < W * H; i++) {
       const t = tiles[i]; if (!t.road) continue;
@@ -297,7 +306,7 @@
         ctx.globalAlpha = lit ? .8 : .2; ctx.fillRect(x + .2 + c * .16, y + .5 + r * .14, .1, .08);
       }
       ctx.globalAlpha = 1;
-      ctx.fillStyle = T.c; ctx.font = '800 0.26px "Wanted Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = T.c; ctx.font = '800 0.26px "Barlow Condensed","Wanted Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(t.term.id, x + .5, y + .32);
     }
 
@@ -342,10 +351,10 @@
         for (let d = 0; d < 4; d++) if (a[d]) {
           const green = sg ? ((d % 2) === sg.axis && sim.t >= sg.clearUntil) : false;
           const px = x + DX[d] * .34 + (-DY[(d + 2) % 4]) * (w / 2 + .02), py = y + DY[d] * .34 + DX[(d + 2) % 4] * (w / 2 + .02);
-          ctx.fillStyle = '#0a0d18'; rr(ctx, px - .05, py - .05, .1, .1, .02); ctx.fill();
+          ctx.fillStyle = '#0a0d18'; rr(ctx, px - .085, py - .085, .17, .17, .04); ctx.fill();
           ctx.shadowColor = green ? C.green : C.red; ctx.shadowBlur = 8;
           ctx.fillStyle = sg ? (green ? C.green : C.red) : C.yellow;
-          ctx.beginPath(); ctx.arc(px, py, .033, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+          ctx.beginPath(); ctx.arc(px, py, .058, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
         }
       }
       if (t.camera) {
@@ -391,7 +400,7 @@
       ctx.strokeStyle = col; ctx.lineWidth = .025; ctx.setLineDash([.06, .05]);
       ctx.beginPath(); ctx.arc(x, y, .46 + Math.sin(now * 3) * .015, 0, 7); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = '#0a0d18'; rr(ctx, x - .49, y + .3, .34, .18, .05); ctx.fill();
-      ctx.fillStyle = col; ctx.font = '700 0.14px "Wanted Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = col; ctx.font = '700 0.14px "Barlow Condensed","Wanted Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('×' + cf.c, x - .32, y + .395);
     }
     if (sim) {
@@ -446,7 +455,7 @@
   }
 
   function label(ctx, x, y, text, col) {
-    ctx.font = '700 0.15px "Wanted Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '700 0.15px "Barlow Condensed","Wanted Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(text).width + .14;
     ctx.fillStyle = 'rgba(6,9,20,.88)'; rr(ctx, x - w / 2, y - .11, w, .22, .06); ctx.fill();
     ctx.strokeStyle = col; ctx.lineWidth = .015; rr(ctx, x - w / 2, y - .11, w, .22, .06); ctx.stroke();
@@ -506,7 +515,7 @@
     if (!dark) { ctx.fillStyle = col; ctx.fillRect(x - w / 2 + 5, y - 6, 4, 11); }
     ctx.fillStyle = dark ? '#fff' : '#1c1f27'; ctx.fillText(text, x + (dark ? 0 : 3), y);
   }
-  const TYPE_NAME = { normal: '일반 운전자', speeder: '과속 운전자', novice: '초보 운전자', bus: '버스 (승객 20명)' };
+  const TYPE_NAME = { normal: '일반 운전자', speeder: '과속 운전자', novice: '초보 운전자', bus: '버스 (승객 20명)', tractor: '경운기', moto: '오토바이' };
   function overlay3d(ctx, st, V) {
     const sim = st.sim; if (!sim) return;
     const tr = st.tracked;
@@ -547,7 +556,7 @@
     for (const s of d.cur) ymax = Math.max(ymax, s.pc);
     ymax = Math.ceil(ymax / 10) * 10;
     const X = t => L + t / F.SIM_END * pw, Y = v => T + ph - v / ymax * ph;
-    ctx.font = '20px "Wanted Sans",system-ui,sans-serif'; ctx.textBaseline = 'middle';
+    ctx.font = '20px "Barlow Condensed","Wanted Sans",system-ui,sans-serif'; ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(255,216,74,.06)'; ctx.fillRect(X(F.PM_START), T, X(F.DEMAND_END) - X(F.PM_START), ph);
     ctx.strokeStyle = '#1c2850'; ctx.lineWidth = 1; ctx.fillStyle = '#8492bd'; ctx.textAlign = 'right';
     for (let v = 0; v <= ymax; v += 10) { ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + pw, Y(v)); ctx.stroke(); ctx.fillText(v, L - 8, Y(v)); }
@@ -579,11 +588,11 @@
     let ymax = 50; for (const p of d.pts) ymax = Math.max(ymax, p.pc);
     ymax = Math.ceil(ymax / 10) * 10;
     const X = c => L + c / F.BUDGET * pw, Y = v => T + ph - v / ymax * ph;
-    ctx.font = '20px "Wanted Sans",system-ui,sans-serif'; ctx.textBaseline = 'middle';
+    ctx.font = '20px "Barlow Condensed","Wanted Sans",system-ui,sans-serif'; ctx.textBaseline = 'middle';
     ctx.strokeStyle = '#1c2850'; ctx.lineWidth = 1; ctx.fillStyle = '#8492bd'; ctx.textAlign = 'right';
     for (let v = 0; v <= ymax; v += 10) { ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + pw, Y(v)); ctx.stroke(); ctx.fillText(v, L - 8, Y(v)); }
     ctx.textAlign = 'center';
-    for (let c = 0; c <= F.BUDGET; c += 500) ctx.fillText('$' + c, X(c), Hp - 14);
+    for (let c = 0; c <= F.BUDGET; c += 500) ctx.fillText(c >= 1000 ? '$' + (c / 1000) + 'M' : '$' + c + 'K', X(c), Hp - 14);
     ctx.fillStyle = 'rgba(54,241,160,.07)'; ctx.fillRect(L, Y(d.target), pw, Y(0) - Y(d.target));
     ctx.strokeStyle = '#36f1a0'; ctx.setLineDash([8, 6]); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(L, Y(d.target)); ctx.lineTo(L + pw, Y(d.target)); ctx.stroke(); ctx.setLineDash([]);

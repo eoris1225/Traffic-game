@@ -115,6 +115,7 @@
     try {
       for (const name in POSES) {
         const g = build(THREE, POSES[name]); scene.add(g);
+        camera.fov = POSES[name].stick ? 33 : 24; camera.updateProjectionMatrix();          // 발표봉을 든 자세는 봉 끝까지 담기도록 넓게 찍는다
         renderer.render(scene, camera);
         cx.clearRect(0, 0, SIZE, SIZE); cx.drawImage(renderer.domElement, 0, 0);
         res[name] = sticker(copy);

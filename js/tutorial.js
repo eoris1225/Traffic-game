@@ -10,13 +10,12 @@
   let done = false; try { done = localStorage.getItem(DONE) === '1'; } catch (e) { /* ignore */ }
   const setDone = () => { done = true; try { localStorage.setItem(DONE, '1'); } catch (e) { /* ignore */ } };
   const resultUp = () => !$('result').classList.contains('hidden');
-  const shortcut = () => L.tiles[4 * 12 + 5].barricade || L.tiles[4 * 12 + 6].barricade;
   const tool = id => document.querySelector('.tool[data-tool="' + id + '"]');
-  const tools = (...ids) => () => ids.map(tool);
   const shown = el => el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
+  const INTRO = 'flowlab.intro.';
 
   /* 대사는 js/script.js 에 있다.  넘기는 법 — say(기본): 눌러서 · auto: 잠깐 뒤 저절로 · wait: 조건이 참이 되면(스포트라이트 안만 조작 가능)
-   * spot: 어둡게 하고 남겨 둘 요소(들) 또는 칸 [x, y] */
+   * spot: 어둡게 하고 남겨 둘 요소(들) 또는 칸 [x, y].  튜토리얼은 1스테이지(시골길 잇기)에서 진행된다. */
   const STEPS = [
     { pose: 'search', at: 'L', text: T.call1, auto: 1400 },
     { pose: 'search', at: 'R', text: T.call2, auto: 1400 },
@@ -24,19 +23,16 @@
     { pose: 'found', text: T.found, enter: () => body.classList.remove('pre') },
     { pose: 'talk', text: T.intro },
     { pose: 'worry', text: T.look },
-    { pose: 'point', spot: () => $('figTime'), text: T.time },
-    { pose: 'talk', text: T.red },
-    { pose: 'point', spot: () => (shown($('captionBtn')) ? $('captionBtn') : $('resEdit')), text: T.goEdit, wait: () => L.mode === 'edit' },
     { pose: 'point', spot: () => $('tray'), text: T.tray },
-    { pose: 'point', spot: () => tool('barricade'), text: T.pick, wait: () => !!document.querySelector('.tool.sel[data-tool="barricade"]') || shortcut() || L.mode !== 'edit' },
-    { pose: 'think', spot: [5, 4], text: T.block, wait: () => shortcut() || L.mode !== 'edit' },
+    { pose: 'point', spot: () => tool('road'), text: T.pick, wait: () => !!document.querySelector('.tool.sel[data-tool="road"]') },
+    { pose: 'think', spot: () => $('map'), free: true, text: T.draw, wait: () => L.connected() || L.mode !== 'edit' },
     { pose: 'found', spot: () => $('btnPlay'), text: T.run, wait: () => L.mode === 'run' || resultUp() },
-    { pose: 'think', text: T.why },
-    { pose: 'talk', spot: () => $('btnSkip'), text: T.wait, wait: resultUp },
+    { pose: 'talk', spot: () => $('btnSkip'), text: T.watch, wait: resultUp },
     { pose: 'cheer', spot: () => document.querySelector('#result .card'), text: T.result },
     { pose: 'talk', spot: () => $('btnHelp'), text: T.help, enter: () => $('result').classList.add('hidden') },
     { pose: 'cheer', text: T.bye }
   ];
+  let seq = STEPS;
 
   const tut = $('tut'), txt = $('tutText'), mark = $('tutMark'), poly = mark.querySelector('polygon'), spot = $('tutSpot');
   let idx = -1, step = null, segs = [], shownN = 0, typeT = 0, autoT = 0, running = false, hole = null;
@@ -51,13 +47,13 @@
   }
   function show(k) {
     clearTimeout(typeT); clearTimeout(autoT);
-    idx = k; step = STEPS[k];
-    if (!step) return finale();
+    idx = k; step = seq[k];
+    if (!step) return seq === STEPS ? finale() : end(false);
     if (step.enter) step.enter();
     tut.className = 'at-' + (step.at || 'talk') + (step.wait ? ' waiting' : '') + (step.auto ? ' auto' : '');
     face($('tutPip'), step.pose);
     const im = $('tutPip'); im.classList.remove('pop'); void im.offsetWidth; im.classList.add('pop');
-    if (step.spot && L.mode === 'edit') { const t = tool('barricade'), tr = $('tray'); if (t && tr.scrollWidth > tr.clientWidth) tr.scrollLeft = t.offsetLeft - tr.clientWidth / 2; }   // 좁은 화면: 도구함만 옆으로 민다
+    if (step.spot && L.mode === 'edit') { const t = tool('road'), tr = $('tray'); if (t && tr.scrollWidth > tr.clientWidth) tr.scrollLeft = t.offsetLeft - tr.clientWidth / 2; }   // 좁은 화면: 도구함만 옆으로 민다
     segs = parse(step.text); shownN = 0; paint(); tick();
   }
   function next() { show(idx + 1); }
@@ -79,15 +75,24 @@
     $('tutEnd').classList.remove('hidden'); setDone();
   }
   function start() {
-    $('title').classList.add('hidden'); $('help').classList.add('hidden'); $('tutEnd').classList.add('hidden');
-    body.classList.add('pre'); running = true;
-    L.startBefore(); if (V3) V3.setView('iso');
+    $('title').classList.add('hidden'); $('help').classList.add('hidden'); $('tutEnd').classList.add('hidden'); $('stageSel').classList.add('hidden');
+    body.classList.add('pre'); running = true; seq = STEPS;
+    L.loadStage(0, true);                                        // 1스테이지를 처음 상태로
+    tool('demolish') && tool('demolish').click(); $('toolInfo').classList.add('hidden');   // 도로 도구를 직접 고르게 하려고 다른 도구를 잡아 둔다
     show(0);
   }
-  function play() {                                            // 튜토리얼 없이 바로
+  function play() {                                            // 튜토리얼 없이: 스테이지를 고른다
     $('title').classList.add('hidden'); body.classList.remove('pre');
-    L.startBefore(); if (V3) V3.setView('iso');
+    L.openStages();
   }
+  /* 스테이지에 처음 들어갈 때의 짧은 안내 */
+  function brief(id) {
+    const lines = (SC.stages || {})[id]; if (!lines || !lines.length || running) return;
+    try { if (localStorage.getItem(INTRO + id) === '1') return; localStorage.setItem(INTRO + id, '1'); } catch (e) { /* ignore */ }
+    seq = lines.map((text, k) => ({ pose: k === lines.length - 1 ? 'point' : k ? 'think' : 'talk', text }));
+    running = true; show(0);
+  }
+  document.addEventListener('flow-stage', () => { if (!running) brief(L.stage.id); });
 
   /* 스포트라이트 자리(무대 기준 사각형) 계산 */
   function rectOf(target) {
@@ -127,6 +132,7 @@
   const guard = e => {
     if (!running || !step || !step.wait || e.target.id === 'tutSkip') return;
     const wr = wrap.getBoundingClientRect(), x = e.clientX - wr.left, y = e.clientY - wr.top;
+    if (step.free && (e.target.closest('#map') || e.target.closest('#tray') || e.target.closest('#btnUndo'))) return;
     if (hole && x >= hole[0] && x <= hole[0] + hole[2] && y >= hole[1] && y <= hole[1] + hole[3]) return;
     e.stopPropagation(); e.preventDefault();
   };
@@ -134,7 +140,7 @@
 
   tut.addEventListener('click', e => { if (e.target.id !== 'tutSkip') advance(); });
   $('tutSkip').addEventListener('click', () => end(true));
-  $('endGo').addEventListener('click', () => { end(true); $('result').classList.add('hidden'); L.startEdit(); });
+  $('endGo').addEventListener('click', () => { end(true); $('result').classList.add('hidden'); L.openStages(); });
   window.addEventListener('keydown', e => {
     if (e.code !== 'Space' && e.key !== 'Enter') return;
     const stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };
@@ -154,9 +160,8 @@
   $('tutSkip').textContent = SC.ask.skip;
   $('endForm').textContent = SC.end.form; $('endTitle').textContent = SC.end.title; $('endBody').innerHTML = SC.end.body1 + '<br>' + SC.end.body2;
   $('endStamp').innerHTML = SC.end.stamp1 + '<br>' + SC.end.stamp2; $('endGo').textContent = SC.end.button;
-  face($('tPip'), 'found');
   body.classList.add('pre'); $('title').classList.remove('hidden');
-  if (V3) V3.look(6, 4.7, 14, -0.55, 0.52);
+  if (V3) { V3.setView('iso', true); V3.look(6, 4.7, 14, -0.55, 0.52); }
   requestAnimationFrame(loop);
   window.FlowTutorial = { start, end, show, get step() { return idx; }, get count() { return STEPS.length; } };
 })();

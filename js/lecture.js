@@ -43,7 +43,7 @@
   const flow = (a, n) => { for (let k = 0; k < (n || 3); k++) { a.car(['normal', 'normal', 'speeder'][k % 3], E(1), { ph: k / (n || 3), v: 1.1 }); if (k < 2) a.car('normal', Wd(1), { ph: k / 2 + .2, v: 1 }); } };
 
   /* ---------- 설명 자료 ---------- */
-  const T = (id, nm) => ({ id, nm, icon: '{t:' + id + '}', cost: '$' + F.COST[id] });
+  const T = (id, nm) => ({ id, nm, icon: '{t:' + id + '}', cost: (c => (c >= 1000 ? '$' + c / 1000 + 'M' : '$' + c + 'K'))(F.COST[id]) });
   const TOPICS = [
     Object.assign(T('road', '도로'), { slides: [
       { s: a => { a.road(0, 1, 1, 1); a.road(3, 1, 4, 1); a.queue('normal', 1.2, 1.64, 3, 1); a.note(2.5, .55, '끊긴 길'); a.ring(2.5, 1.5, .55); } },
@@ -97,7 +97,7 @@
       { s: a => { row(a); a.car('normal', E(1), { v: 1.2 }); a.car('speeder', E(1), { v: 1.2, ph: .3 }); a.car('novice', E(1), { v: 1.2, ph: .6 }); a.car('bus', Wd(1), { v: 1 }); a.note(2.5, .5, '파랑 일반 · 빨강 과속 · 노랑 초보 · 초록 버스'); } }] },
     { id: 'stars', nm: '별과 목표', icon: '{star}', cost: '4단계', slides: [
       { poster: [['★', '평균 이동시간 24초 이하'], ['★', '사고 없이'], ['★', '평균 이동시간 20초 이하'], ['p', '17초 이하를 $1,200 안에']] },
-      { poster: [['$', '총예산 $3,500'], ['↺', '같은 도구로 다시 누르면 전액 환불'], ['~', '위쪽 "예상" 은 다른 날 아침의 추정치']] }] }
+      { poster: [['$', '예산은 스테이지마다 다릅니다'], ['↺', '같은 도구로 다시 누르면 전액 환불'], ['~', '위쪽 "예상" 은 다른 날 아침의 추정치']] }] }
   ];
   const TOPIC = {}; TOPICS.forEach(t => TOPIC[t.id] = t);
 
