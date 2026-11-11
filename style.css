@@ -419,3 +419,32 @@ body.tutoring #caption{display:none}
 }
 #tut.dock-top #tutSkip{top:auto;bottom:92px}
 #tutSpot.nodim{box-shadow:0 0 0 3px var(--yellow),0 0 14px 4px rgba(255,201,40,.55)!important;background:none!important}
+/* --- 지역별 스테이지 선택 --- */
+#stages .stage small{margin-left:6px;font-family:var(--num);font-size:13px;opacity:.6}
+.wSec{margin-bottom:16px}
+.wSec h3{display:flex;align-items:baseline;gap:8px;margin:0 0 8px;font-family:var(--sign);font-weight:400;font-size:21px}
+.wSec h3 b{font-family:var(--num);font-weight:800;font-size:26px;color:var(--blue)}
+.wRow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+#stageList{display:block}
+.stCard{min-height:104px;padding:10px 12px}
+.stCard .stNo{font-size:22px}
+.stCard b{font-size:16px;line-height:1.25}
+.stCard .stStars{margin-top:auto;padding-top:6px}
+.stCard .stStars svg{width:17px;height:17px}
+.stCard.locked .stStars svg{color:#c3bca9}
+/* --- 스테이지 안내 카드 --- */
+#brief{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(28,31,39,.45);z-index:8}
+#brief .card{background:var(--cream);color:var(--ink);border-radius:16px;padding:20px 26px 20px;width:min(400px,100%);box-shadow:0 8px 0 var(--ink)}
+#briefNo{font-family:var(--num);font-weight:800;font-size:17px;color:var(--blue)}
+#briefName{margin:0 0 6px;font-family:var(--sign);font-weight:400;font-size:28px;line-height:1.15}
+#briefTask{margin:0 0 12px;font-size:15px;font-weight:700;line-height:1.5}
+#briefTools{display:flex;gap:6px;margin:12px 0 16px}
+#briefTools span{display:grid;place-items:center;width:34px;height:32px;border-radius:7px;background:#fff}
+#briefTools svg{width:24px;height:24px}
+#briefGo{width:100%}
+.mooseLine{display:flex;align-items:center;gap:10px;margin:10px 0;text-align:left}
+.mooseLine img{flex:none;width:76px;height:76px;margin:-8px -6px -8px -10px}
+.mooseLine b{font-size:12.5px;font-weight:900;color:#8a5a36}.mooseLine b small{font-weight:700;color:var(--mute);margin-left:4px}
+.mooseLine p{margin:2px 0 0;font-size:13.5px;font-weight:600;line-height:1.5}
+#btnHint.on{background:var(--yellow);color:var(--ink)}
+@media (max-width:760px){.wRow{grid-template-columns:repeat(2,1fr)}.stCard{min-height:84px}}

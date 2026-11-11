@@ -98,8 +98,6 @@
     seq = lines.map((text, k) => ({ pose: k === lines.length - 1 ? 'point' : k ? 'think' : 'talk', text }));
     running = true; show(0);
   }
-  document.addEventListener('flow-stage', () => { if (!running) brief(L.stage.id); });
-  document.addEventListener('flow-clear', e => { if (!running) brief(e.detail + 'Win'); });
 
   /* 스포트라이트 자리(무대 기준 사각형) 계산 */
   function rectOf(target) {
@@ -162,7 +160,7 @@
 
   tut.addEventListener('click', e => { if (e.target.id !== 'tutSkip') advance(); });
   $('tutSkip').addEventListener('click', () => end(true));
-  $('endGo').addEventListener('click', () => { end(true); $('result').classList.add('hidden'); L.openStages(); });
+  $('endGo').addEventListener('click', () => { end(true); $('result').classList.remove('hidden'); });
   window.addEventListener('keydown', e => {
     if (e.code !== 'Space' && e.key !== 'Enter') return;
     const stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };

@@ -121,6 +121,8 @@
       else if (ch === '=') t = newTile('water');
       else if (ch === 'C') t = newTile('site');
       else if (ch === 'F') t = newTile('field');
+      else if (ch === 'K') t = newTile('cont');
+      else if (ch === 'T') t = newTile('forest');
       else if (ch === 'M') t = newTile('mill');
       else {
         t = newTile('grass');

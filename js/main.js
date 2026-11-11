@@ -5,7 +5,7 @@
   const F = window.FlowSim, R = window.FlowRender, W = F.W, H = F.H;
   const $ = id => document.getElementById(id);
   const SEED = 1225, PRED_SEED = 7, STORE = 'flowlab.v7.', PROG = 'flowlab.progress.v1';
-  const STAGES = window.FlowStages.STAGES, SOON = window.FlowStages.SOON;
+  const STAGES = window.FlowStages.STAGES, WORLDS = window.FlowStages.WORLDS;
   const won = c => (c >= 1000 ? '$' + (c / 1000) + 'M' : c ? '$' + c + 'K' : '$0');   // 돈: 내부값 100 = $100K (도로 한 칸)
 
   /* 목표는 스테이지마다 다르다(js/stages.js). 앞 단계를 달성해야 다음 별을 받는다. */
@@ -28,6 +28,7 @@
     play: S('<path d="M7 4.5v15a1 1 0 0 0 1.5.9l12.5-7.5a1 1 0 0 0 0-1.8L8.5 3.6A1 1 0 0 0 7 4.5z" fill="currentColor"/>', 24),
     stop: S('<rect x="5" y="5" width="14" height="14" rx="2.5" fill="currentColor"/>', 24),
     list: S('<rect x="3" y="4" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="14" y="4" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="3" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="14" y="13.5" width="7" height="7" rx="1.5" fill="currentColor"/>', 24),
+    bulb: S('<path d="M12 3a6.2 6.2 0 0 0-3.6 11.2c.6.5 1 1.2 1 2v.3h5.2v-.3c0-.8.4-1.5 1-2A6.2 6.2 0 0 0 12 3z" fill="currentColor"/><rect x="9.600" y="18" width="4.800" height="1.800" rx=".9" fill="currentColor"/><rect x="10.400" y="20.400" width="3.200" height="1.500" rx=".75" fill="currentColor"/>', 24),
     close: S('<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" ' + ln + '/>', 24),
     lock: S('<rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="2.2" ' + ln + '/>', 24),
     sun: S('<circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" ' + ln + '/>', 24),
@@ -86,6 +87,7 @@
   /* 스테이지 불러오기: 맵·교통량·목표·도구가 통째로 바뀐다. fresh 면 저장된 설계를 버리고 처음 상태로 */
   function loadStage(k, fresh) {
     if (fresh) { try { localStorage.removeItem(STORE + STAGES[k].id); } catch (e) { /* ignore */ } }
+    hintOn = false; if ($('btnHint')) $('btnHint').classList.remove('on');
     stageIdx = k; ST = STAGES[k]; GOALS = ST.goals; TARGET = ST.target; F.BUDGET = ST.budget;
     base = ST.rows ? F.parseStage(ST.rows, ST.terms, !ST.locks) : F.parseStage(F.STAGE1);
     tiles = F.cloneTiles(base); history = []; best = starsOf(k); undo = []; lastM = null; lastSeries = []; predBase = null; sim = null; tracked = null;
@@ -135,13 +137,13 @@
   function check(i, id) {
     const t = tiles[i];
     switch (id) {
-      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'house') return '사람 사는 집이에요. 길은 빈 터에 내 주세요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base === 'water') return '강 위에는 도로 대신 다리를 놓아야 해요'; if (t.base === 'park') return '공원은 밀 수 없어요. 밑으로 지하차도를 내 보세요'; if (t.base === 'field') return '한창 자라는 밭이에요. 옆으로 돌아가 주세요'; if (t.base === 'mill') return '풍차는 마을의 자랑이라 옮길 수 없어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
+      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'house') return '사람 사는 집이에요. 길은 빈 터에 내 주세요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base === 'water') return '강 위에는 도로 대신 다리를 놓아야 해요'; if (t.base === 'park') return '공원은 밀 수 없어요. 밑으로 지하차도를 내 보세요'; if (t.base === 'field') return '한창 자라는 밭이에요. 옆으로 돌아가 주세요'; if (t.base === 'cont') return '컨테이너가 쌓여 있어요. 사이로 돌아가 주세요'; if (t.base === 'forest') return '숲은 밀 수 없어요. 돌아가 주세요'; if (t.base === 'rock') return '바위는 밀 수 없어요. 지하차도로 뚫어야 해요'; if (t.base === 'mill') return '풍차는 마을의 자랑이라 옮길 수 없어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
       case 'wide': if (!t.road) return '도로 위에만 설치할 수 있어요'; if (t.locked) return '잠긴 도로는 넓힐 수 없어요'; return null;
       case 'rev': case 'oneway': case 'guide': case 'bus': case 'bump': case 'barricade': case 'camera': case 'round': case 'signal':
         return t.road ? null : '도로 위에만 설치할 수 있어요';
       case 'overpass': return t.crosswalk && t.road ? null : '횡단보도 위에만 놓을 수 있어요';
       case 'bridge': if (t.term) return '건물 위에는 놓을 수 없어요'; if (!(t.base === 'water' || t.road)) return '다리는 강 위나 도로 위에만 놓을 수 있어요'; return null;
-      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '강 밑으로는 뚫을 수 없어요'; if (t.base === 'bldg' || t.base === 'house') return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; return null;
+      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '강 밑으로는 뚫을 수 없어요'; if (t.base === 'bldg' || t.base === 'house' || t.base === 'cont') return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; return null;
       case 'demolish': {
         const o = base[i];
         if (F.tileCost(t, o) > 0 && !(o.road && !t.road)) return null;
@@ -245,6 +247,7 @@
     $('resBody').innerHTML = isBefore
       ? `평균 이동시간 <b>${m.perCapita.toFixed(1)}초</b> · 사고 <b>${m.accidents}건</b> · 도착 <b>${m.arrived}/${m.total}</b>`
       : `고치기 전 ${baseM.perCapita.toFixed(1)}초 → <b>${m.perCapita.toFixed(1)}초</b> · 도착 <b>${m.arrived}/${m.total}</b> · 예산 <b>${won(c)}</b>`;
+    if (window.FlowMoose) window.FlowMoose.result($('resMoose'), ST, progress, isBefore ? -1 : st);
     $('result').classList.remove('hidden'); setCaption('');
   }
 
@@ -458,19 +461,50 @@
 
   /* ---------- 스테이지 선택 ---------- */
   function buildStageUI() {
-    const tab = (st, k) => `<button class="stage${k === stageIdx ? ' active' : ''}${unlocked(k) ? '' : ' locked'}" data-stage="${k}"><b>${st.no}</b>${st.name}${unlocked(k) ? '' : UI.lock.replace('<svg', '<svg class="lk"')}</button>`;
-    $('stages').innerHTML = STAGES.map(tab).join('') + SOON.map(st => `<span class="stage soon"><b>${st.no}</b>${st.name}</span>`).join('');
-    $('stageList').innerHTML = STAGES.map((st, k) => `<button class="stCard${unlocked(k) ? '' : ' locked'}${k === stageIdx ? ' cur' : ''}" data-stage="${k}">
-        <span class="stNo">${st.no}</span><span class="stPlace">${st.place}</span><b>${st.name}</b><span class="stBlurb">${unlocked(k) ? st.blurb : '앞 스테이지에서 별을 하나 받으면 열립니다'}</span>
-        <span class="stStars">${st.goals.map((g, j) => UI.star.replace('<svg', `<svg class="${(j < starsOf(k) ? 'on' : '') + (g.purple ? ' p' : '')}"`)).join('')}</span></button>`).join('') +
-      SOON.map(st => `<div class="stCard soon"><span class="stNo">${st.no}</span><span class="stPlace">${st.place}</span><b>${st.name}</b><span class="stBlurb">준비 중입니다</span></div>`).join('');
+    const star = (on, p) => UI.star.replace('<svg', `<svg class="${(on ? 'on' : '') + (p ? ' p' : '')}"`);
+    // 머리글: 지역 넷. 지금 지역은 밝게, 아직 못 간 지역은 흐리게
+    $('stages').innerHTML = WORLDS.map((w, wi) => {
+      const first = STAGES.findIndex(x => x.wi === wi), got = STAGES.filter(x => x.wi === wi).reduce((a, x) => a + (starsOf(STAGES.indexOf(x)) > 0 ? 1 : 0), 0);
+      return `<button class="stage${wi === ST.wi ? ' active' : ''}${unlocked(first) ? '' : ' locked'}" data-world="${wi}"><b>${wi + 1}</b>${w.name}<small>${got}/${w.stages.length}</small></button>`;
+    }).join('');
+    $('stageList').innerHTML = WORLDS.map((w, wi) => `<section class="wSec"><h3><b>${wi + 1}</b>${w.name}</h3><div class="wRow">` +
+      w.stages.map(st => { const k = STAGES.indexOf(st), open = unlocked(k);
+        return `<button class="stCard${open ? '' : ' locked'}${k === stageIdx ? ' cur' : ''}" data-stage="${k}"><span class="stNo">${st.no}</span><b>${st.name}</b>` +
+          `<span class="stStars">${open ? st.goals.map((g, j) => star(j < starsOf(k), g.purple)).join('') : UI.lock}</span></button>`; }).join('') + '</div></section>').join('');
+    document.querySelectorAll('[data-world]').forEach(b => b.onclick = openStages);
     document.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => {
       const k = +b.dataset.stage;
       if (!unlocked(k)) { toast('앞 스테이지에서 별을 하나 받으면 열려요'); return; }
       $('stageSel').classList.add('hidden');
-      if (k !== stageIdx) loadStage(k); else if (V3) V3.setView(mode === 'edit' ? 'top' : 'iso', true);   // 같은 스테이지여도 시점은 제자리로(시작 화면의 둘러보기 시점이 남지 않게)
+      if (k !== stageIdx) loadStage(k); else if (V3) V3.setView(mode === 'edit' ? 'top' : 'iso', true);
+      showBrief();
       document.dispatchEvent(new CustomEvent('flow-stage', { detail: k }));
     });
+  }
+  /* 스테이지 안내 카드: 이름, 할 일, 별 목표. 핍이 나와서 설명하지 않는다 */
+  function showBrief() {
+    $('briefNo').textContent = ST.place + ' ' + ST.no; $('briefName').textContent = ST.name; $('briefTask').textContent = ST.task || '';
+    goalList($('briefGoals'), null, 0);
+    $('briefTools').innerHTML = TOOLS.filter(t => ST.tools.includes(t.id)).map(t => `<span title="${t.nm}">${IC[t.id]}</span>`).join('');
+    const M = window.FlowMoose; if (M) M.brief($('briefMoose'), ST, progress);
+    $('brief').classList.remove('hidden');
+  }
+  $('briefGo').onclick = () => $('brief').classList.add('hidden');
+  /* 힌트: 추천 해법의 칸을 지도에 표시한다 */
+  let hintOn = false; const hintImg = {};
+  $('btnHint').onclick = () => { hintOn = !hintOn; $('btnHint').classList.toggle('on', hintOn); if (hintOn && mode !== 'edit') startEdit(); };
+  function drawHints() {
+    if (!hintOn || mode !== 'edit' || !V3 || !ST.sol) return;
+    for (const [x, y, id, o] of ST.sol) {
+      const t = tiles[y * W + x], done = id === 'road' ? t.road : (id === 'bridge' || id === 'tunnel') ? t[id] === (o || 'H') : !!t[id];
+      if (done) continue;
+      const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(p => V3.project(p[0], p[1], .03));
+      ctx.beginPath(); c.forEach((p, k) => (k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath();
+      ctx.fillStyle = 'rgba(255,201,40,.28)'; ctx.fill(); ctx.setLineDash([7, 5]); ctx.lineWidth = 2.5; ctx.strokeStyle = '#ffc928'; ctx.stroke(); ctx.setLineDash([]);
+      let im = hintImg[id]; if (!im) { im = hintImg[id] = new Image(); im.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(IC[id]); }
+      const cx = (c[0][0] + c[2][0]) / 2, cy = (c[0][1] + c[2][1]) / 2, sz = Math.max(14, Math.min(26, Math.abs(c[1][0] - c[0][0]) * .5 + Math.abs(c[3][1] - c[0][1]) * .1));
+      if (im.complete && im.naturalWidth) { ctx.globalAlpha = .9; ctx.drawImage(im, cx - sz / 2, cy - sz / 2, sz, sz); ctx.globalAlpha = 1; }
+    }
   }
   const openStages = () => { buildStageUI(); $('stageSel').classList.remove('hidden'); };
 
@@ -487,7 +521,7 @@
   $('btnHelp').onclick = $('btnGoals').onclick = openHelp;
   $('helpClose').onclick = () => $('help').classList.add('hidden');
   $('btnStages').onclick = $('btnStages2').onclick = openStages; $('stagesClose').onclick = () => $('stageSel').classList.add('hidden');
-  $('resNext').onclick = () => { $('result').classList.add('hidden'); loadStage(stageIdx + 1); document.dispatchEvent(new CustomEvent('flow-stage', { detail: stageIdx })); };
+  $('resNext').onclick = () => { $('result').classList.add('hidden'); loadStage(stageIdx + 1); showBrief(); document.dispatchEvent(new CustomEvent('flow-stage', { detail: stageIdx })); };
   document.querySelectorAll('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target === m) m.classList.add('hidden'); }));
   $('resEdit').onclick = startEdit;
   $('resClose').onclick = () => $('result').classList.add('hidden');
@@ -511,7 +545,7 @@
     }
     if (tracked && (tracked.gone || tracked.crashed)) tracked = null;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, vw, vh);
-    if (V3) { V3.update(sim, now); R.overlay3d(ctx, { sim, tracked, now }, V3); }
+    if (V3) { V3.update(sim, now); R.overlay3d(ctx, { sim, tracked, now }, V3); drawHints(); }
     else {                                                  // WebGL 없음: 2D 지도로 대체
       ctx.save(); ctx.translate(ox, oy);
       R.draw(ctx, { TS, tiles: sim ? sim.tiles : tiles, graph: sim || graph, sim, mode, hover, now, tracked, theme: mode === 'edit' ? 'blueprint' : 'poly', showHeat: true });
@@ -528,6 +562,6 @@
   if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('900 20px "Wanted Sans"'), document.fonts.load('500 13px "Wanted Sans"'), document.fonts.load('400 20px "Do Hyeon"', '가'), document.fonts.load('800 20px "Barlow Condensed"')]).then(() => { rebuild3d(); resize(); }).catch(() => {});
   requestAnimationFrame(frame);
 
-  window.FlowLab = { V3, UI, IC, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, get baseM() { return baseM; }, grade, loadStage, openStages, connected, get stage() { return ST; }, get stageIdx() { return stageIdx; },
+  window.FlowLab = { V3, UI, IC, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, get baseM() { return baseM; }, grade, loadStage, openStages, connected, showBrief, get progress() { return progress; }, get stage() { return ST; }, get stageIdx() { return stageIdx; },
     apply: (x, y, id) => { const r = apply(y * W + x, id); afterEdit(); return r; } };
 })();

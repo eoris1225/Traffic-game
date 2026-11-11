@@ -7,7 +7,7 @@
   const DECK = 0.5, TUN = -0.35;
   const CARCOL = { normal: 0x4a86d9, speeder: 0xe5483f, novice: 0xffc928, bus: 0x1f9d6b, tractor: 0xc9502e, moto: 0x3a3f4c };
   const NORMAL_VARIANTS = [0x4a86d9, 0xf6f3ea, 0x3fa7b5, 0x7c8296, 0x5b6fc7];
-  const TERMCOL = { home: 0x4a86d9, factory: 0x8a6fd1, office: 0xf2a93b, port: 0x2fa89a, market: 0xd9793b };
+  const TERMCOL = { home: 0x4a86d9, factory: 0x8a6fd1, office: 0xf2a93b, port: 0x2fa89a, market: 0xd9793b, farm: 0xb5524a };
 
   function create(wrap) {
     const THREE = root.THREE;
@@ -450,7 +450,21 @@
       for (const sz of [-.018, .018]) mesh(G.box, mats.deer, .1, .225, sz, .012, .03, .012, g, false);
       return g;
     }
-    function buildEnvRural(tiles) {
+    const CONT = [0xc8433c, 0x3f6f9a, 0xd8a941, 0x3f8f6a, 0xe07a3a, 0x8a8f9a].map(c => M(c));
+    function contStack(b, x, z, seed, ry) {                    // 컨테이너 더미
+      const n = 1 + Math.floor(hash(seed * 2.1) * 3);
+      for (let k = 0; k < n; k++) b.add(G.box, CONT[Math.floor(hash(seed * 3.7 + k) * CONT.length)], x, .075 + k * .15, z, .42, .145, .19, ry || 0);
+    }
+    function contTile(b, x, z, seed) { contStack(b, x + .5, z + .26, seed, 0); contStack(b, x + .5, z + .5, seed + 5, 0); contStack(b, x + .5, z + .74, seed + 9, 0); }
+    function gantry(b, x, z, ry) {                             // 부두 크레인
+      const m = mats.orange, c = Math.cos(ry), s2 = Math.sin(ry), P = (lx, lz) => [x + lx * c - lz * s2, z + lx * s2 + lz * c];
+      for (const [lx, lz] of [[-.3, -.25], [.3, -.25], [-.3, .25], [.3, .25]]) { const p = P(lx, lz); b.add(G.box, m, p[0], .6, p[1], .05, 1.2, .05); }
+      b.add(G.box, m, x, 1.22, z, .7, .06, .6, -ry); const j = P(.55, 0); b.add(G.box, m, j[0], 1.3, j[1], 1.9, .05, .08, -ry);
+      const cb = P(.1, 0); b.add(G.box, mats.dark, cb[0], 1.12, cb[1], .16, .14, .16, -ry); const hk = P(1.1, 0); b.add(G.box, mats.dark, hk[0], .95, hk[1], .012, .66, .012, 0, 0, 0, false); contStack(b, hk[0], hk[1], 3, -ry);
+    }
+    function forestTile(b, x, z, seed) { for (let k = 0; k < 4; k++) tree(b, x + .2 + hash(seed + k * 3.1) * .6, z + .2 + hash(seed * 1.7 + k) * .6, .85 + hash(seed + k) * .5, 1); }
+
+    function buildEnvRural(tiles, alpine) {
       env = new THREE.Group(); scene.add(env);
       const eb = Batch(), E = 48, quad = (arr, x0, z0, x1, z1, y) => arr.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
       const geo = arr => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); return g; };
@@ -468,29 +482,43 @@
         if (cx >= 0 && cx < W && cz >= 0 && cz < H) continue;
         if (onLane(cx, cz)) continue;
         const k = cx * 31.7 + cz * 17.3, r = hash(k), r2 = hash(k + 3), n = vnoise(cx / 2.4 + 9, cz / 2.4 + 4);
+        if (alpine) {                                             // 산: 밭 대신 숲과 바위
+          if (n < .5) forestTile(eb, cx, cz, k); else if (r < .14) { eb.add(G.cone5, mats.rock, cx + .5, .25, cz + .5, .34, .5, .34, r * 9); eb.add(G.cone5, mats.snow, cx + .5, .42, cz + .5, .12, .17, .12, r * 9); } else if (r < .2) houseTile(eb, POUT, cx, cz, k); else if (r < .3) tree(eb, cx + .5, cz + .5, 1, 1);
+          continue;
+        }
         if (n < .46) { quad(soil, cx + .04, cz + .04, cx + .96, cz + .96, .001); cropRows(eb, cx, cz, Math.floor(n * 9) + Math.floor(cx / 3) * 7 + Math.floor(cz / 3) * 13, .9, .9); }
         else if (n > .7 && r < .32) { houseTile(eb, POUT, cx, cz, k); }
         else if (r < .22) { tree(eb, cx + .3 + r2 * .4, cz + .4, .9 + r2 * .5); if (r2 < .5) tree(eb, cx + .7, cz + .7, .8); }
         else if (r < .27) { hayBale(eb, cx + .3, cz + .4, r * 9); hayBale(eb, cx + .55, cz + .6, r2 * 9); hayBale(eb, cx + .5, cz + .3, 1); }
         else if (r < .3) bush(eb, cx + .5, cz + .5, 1.2);
       }
+      // 격자 가장자리의 물(개울·협곡)은 바깥으로 이어 그린다
+      const stream = [];
+      for (let x = 0; x < W; x++) { if (tiles[x].base === 'water') quad(stream, x, -E, x + 1, 0, .004); if (tiles[(H - 1) * W + x].base === 'water') quad(stream, x, H, x + 1, H + E, .004); }
+      if (stream.length) flat(stream, mats.pond);
+      if (alpine) for (let k = 0; k < 14; k++) {                 // 가까운 봉우리
+        const a = -2.6 + k * .42, d = 15 + hash(k * 3.1) * 7, r = 3.5 + hash(k * 5.3) * 3, hh = 5 + hash(k * 7.7) * 5, px = W / 2 + Math.cos(a) * d * 1.3, pz = H / 2 + Math.sin(a) * d - 4;
+        if (pz > H + 3) continue;
+        eb.add(G.cone5, k % 2 ? mats.rock : mats.rock2, px, hh / 2 - .2, pz, r, hh, r, k, 0, 0, false); eb.add(G.cone5, mats.snow, px, hh * .8 - .2, pz, r * .42, hh * .42, r * .42, k, 0, 0, false);
+      }
       flat(soil, mats.fieldBg); flat(dirt, mats.dirt);
       for (let k = 0; k < 18; k++) { const r = 7 + hash(k * 2.3) * 7, hh = 2.2 + hash(k * 4.1) * 3.4; eb.add(G.ico1, [mats.hill, mats.hill2, mats.hill3][k % 3], -30 + k * 4.2 + hash(k) * 2, -.3, -24 - hash(k * 7.7) * 10, r, hh, r * .8, k, 0, 0, false); }
       for (let k = 0; k < 7; k++) for (const sx of [-1, 1]) { const r = 6 + hash(k * 9.1 + sx) * 5, hh = 2 + hash(k * 3.3 + sx) * 3; eb.add(G.ico1, k % 2 ? mats.hill : mats.hill3, W / 2 + sx * (33 + hash(k + sx) * 6), -.3, -18 + k * 6.5, r * .8, hh, r, k * 2, 0, 0, false); }
       eb.flush(env);
-      envMills = []; windmill(env, -5.2, 1.5, 1.5, envMills); windmill(env, W + 5.4, 6.2, 1.3, envMills); windmill(env, 4.5, -5.5, 1.7, envMills);
+      envMills = []; if (!alpine) { windmill(env, -5.2, 1.5, 1.5, envMills); windmill(env, W + 5.4, 6.2, 1.3, envMills); windmill(env, 4.5, -5.5, 1.7, envMills); }
       // 흙길의 경운기·오토바이, 걸어 다니는 사람들, 들판의 고라니
       amb = []; envWalkers = []; critters = [];
       let id = 0;
       const add = (type, horiz, c, dir, pos, v) => { const m = carMesh({ type, id: id++, len: type === 'moto' ? .17 : .3 }, env); amb.push({ m, horiz, c, dir, pos, v, off: .0 }); };
-      add('tractor', true, HS[1], 1, -9, .4); add('moto', true, HS[1], -1, 14, 1.3); add('tractor', false, VS[1], 1, -4, .38); add('moto', true, HS[0], 1, -6, 1.2); add('tractor', true, HS[2], -1, 8, .36);
+      if (alpine) { add('normal', true, HS[1], 1, -9, .8); add('moto', true, HS[0], -1, 9, 1.1); }
+      else { add('tractor', true, HS[1], 1, -9, .4); add('moto', true, HS[1], -1, 14, 1.3); add('tractor', false, VS[1], 1, -4, .38); add('moto', true, HS[0], 1, -6, 1.2); add('tractor', true, HS[2], -1, 8, .36); }
       let ws = 300;
       for (const z of HS.slice(0, 2)) for (let k = 0; k < 3; k++) { ws++; walker({ horiz: true, c: z + .2, a: -15, b: W + 15, wrap: true }, ws, hash(ws) < .5, env, envWalkers); }
       for (const [x, z] of [[-2, 5.5], [W + 1.6, 1.5], [6, H + 1.2], [2.5, -1.4]]) critters.push({ g: deerMesh(env), x, z, a: hash(x * 3 + z) * 6, t: hash(x + z * 5) * 4, hop: 0 });
     }
 
     function buildEnv(tiles) {
-      if (theme === 'rural') return buildEnvRural(tiles);
+      if (theme === 'rural' || theme === 'mountain') return buildEnvRural(tiles, theme === 'mountain');
       env = new THREE.Group(); scene.add(env);
       const eb = Batch();
       const E = 48, quad = (arr, x0, z0, x1, z1, y) => arr.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
@@ -577,6 +605,10 @@
         boat(mats.boatB, .5, false).position.set(wx0 + .14, -.3, H + 2.8);
         boat(mats.boatC, .56, false).position.set(wx1 - .14, -.3, -3.4);
       }
+      if (theme === 'harbor' && river) {                         // 항구: 운하 양쪽에 컨테이너와 크레인
+        for (let k = 0; k < 9; k++) { const z = k < 5 ? -2.6 - k * 1.1 : H + 2.4 + (k - 5) * 1.1; if (Math.abs(z + 1.5) < .7 || Math.abs(z - H - 1.5) < .7 || Math.abs(z + 5.5) < .7 || Math.abs(z - H - 5.5) < .7) continue; contStack(eb, wx0 - .5, z, k * 7 + 1, Math.PI / 2); contStack(eb, wx1 + .5, z, k * 5 + 2, Math.PI / 2); }
+        gantry(eb, wx1 + .7, -3.6, Math.PI); gantry(eb, wx0 - .7, H + 3.4, 0);
+      }
       eb.flush(env);
       // 주변 도로의 차와 보도의 사람들
       amb = []; envWalkers = [];
@@ -614,6 +646,10 @@
           mesh(G.box, k % 2 ? mats.fl2 : mats.red, sx, .135, sz, .14, .03, .1, world, false);
         }
         mesh(G.box, mats.hay, cx + .3, .04, cz - .32, .12, .08, .1); tree(b, cx - .34, cz + .34, .7, 0);
+      } else if (kind === 'farm') {                             // 농장: 붉은 헛간과 건초
+        mesh(G.box, cm, cx - .08, .16, cz - .06, .5, .32, .4); const rf = mesh(G.prism, mats.dark, cx - .08, .41, cz - .06, .44, .18, .54); rf.rotation.y = Math.PI / 2;
+        mesh(G.box, mats.white, cx - .08, .1, cz + .145, .14, .2, .012, world, false); mesh(G.cyl10, mats.metal, cx + .3, .22, cz - .2, .07, .44, .07); mesh(G.cone6, mats.dark, cx + .3, .48, cz - .2, .08, .08, .08);
+        mesh(G.box, mats.hay, cx + .26, .04, cz + .28, .12, .08, .1); mesh(G.box, mats.hay, cx + .12, .04, cz + .32, .12, .08, .1);
       } else if (kind === 'home') {
         house(b, PIN, cx - .2, cz - .2, .32, .26, .2, 0, 1); house(b, PIN, cx + .2, cz + .02, .3, .25, .16, 3, 0, { door: .07 }); house(b, PIN, cx - .2, cz + .28, .3, .22, .15, 2, 1, { noChimney: true });
         tree(b, cx + .28, cz - .3, .7, 0); hedge(b, cx + .06, cz + .42, cx + .42, cz + .42);
@@ -672,19 +708,20 @@
 
       // 지면 텍스처: 2D 렌더러로 도로·노면 표시를 그려 그대로 입힌다
       const TP = 128, tc = document.createElement('canvas'); tc.width = W * TP; tc.height = H * TP;
-      root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: opt && opt.edit ? 'edit' : 'tex', theme: 'poly', groundOnly: true, noSidewalk: theme === 'rural', now: 0 });
+      root.FlowRender.draw(tc.getContext('2d'), { TS: TP, tiles, graph, sim: null, mode: opt && opt.edit ? 'edit' : 'tex', theme: 'poly', groundOnly: true, noSidewalk: theme === 'rural' || theme === 'mountain', now: 0 });
       if (tex) tex.dispose();
       tex = new THREE.CanvasTexture(tc); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
       const quads = { grassA: [], grassB: [], rockBg: [], parkBg: [], pave: [], siteBg: [], garden: [], fieldBg: [], pond: [], meadow: [] }, side = [], side2 = [];
       mills = [];
       const inRiver = x => x >= riverCols[0] && x < riverCols[1], pondAt = (x, y) => tiles[y * W + x].base === 'water' && !inRiver(x);
-      const GROUND = { rock: 'rockBg', park: 'parkBg', bldg: 'pave', site: 'siteBg', house: 'garden', field: 'fieldBg' };
+      const GROUND = { rock: 'rockBg', park: 'parkBg', bldg: 'pave', site: 'siteBg', house: 'garden', field: 'fieldBg', cont: 'pave', forest: 'parkBg' };
+      const country = theme === 'rural' || theme === 'mountain';
       const isLand = (x, y) => !(x >= 0 && y >= 0 && x < W && y < H) || tiles[y * W + x].base !== 'water' || pondAt(x, y);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const t = tiles[y * W + x];
         if (t.base === 'water' && !pondAt(x, y)) continue;
         if (t.base === 'water') { quads.pond.push(x, .004, y, x, .004, y + 1, x + 1, .004, y + 1, x, .004, y, x + 1, .004, y + 1, x + 1, .004, y); continue; }   // 연못
-        quads[GROUND[t.base] || (theme === 'rural' ? 'meadow' : (x + y) % 2 ? 'grassA' : 'grassB')].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
+        quads[GROUND[t.base] || (country ? 'meadow' : (x + y) % 2 ? 'grassA' : 'grassB')].push(x, 0, y, x, 0, y + 1, x + 1, 0, y + 1, x, 0, y, x + 1, 0, y + 1, x + 1, 0, y);
         for (let d = 0; d < 4; d++) {
           if (isLand(x + DX[d], y + DY[d])) continue;
           const c = [[x, y, x + 1, y], [x + 1, y, x + 1, y + 1], [x + 1, y + 1, x, y + 1], [x, y + 1, x, y]][d];
@@ -731,12 +768,16 @@
           construction(x, z, i, !(x > 0 && tiles[i - 1].base === 'site'));
         } else if (t.base === 'park') {
           if (!t.tunnel && !t.bridge) parkTile(wb, x, z, i, !(x > 0 && tiles[i - 1].base === 'park'));
+        } else if (t.base === 'cont') {
+          contTile(wb, x, z, i + 2);
+        } else if (t.base === 'forest') {
+          forestTile(wb, x, z, i + 4);
         } else if (t.base === 'field') {
           cropRows(wb, x, z, i + 3, .92, .92);
         } else if (t.base === 'mill') {
           windmill(world, cx, cz, 1.25, mills);
         } else if (t.base === 'grass' && free) {
-          if (theme === 'rural') meadowTile(wb, x, z, i + 1); else lotTile(wb, PIN, x, z, i + 1);
+          if (country) meadowTile(wb, x, z, i + 1); else lotTile(wb, PIN, x, z, i + 1);
         }
         if (t.term) building(wb, t, x, z);
         const a = ARM[i] = arms(i), vert = (a[0] || a[2]) && !(a[1] || a[3]);
