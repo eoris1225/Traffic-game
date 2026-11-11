@@ -44,6 +44,7 @@
   const typing = () => step && shownN < segs.length;
   function paint() { txt.innerHTML = segs.slice(0, shownN).join(''); }
   function tick() {
+    if (window.FlowSound && shownN % 2 === 0) window.FlowSound.blip('pip');
     shownN = Math.min(segs.length, shownN + 1); paint();
     const ch = segs[shownN - 1];
     if (typing()) typeT = setTimeout(tick, ch.length > 1 ? 140 : /[!?.…—,]/.test(ch) ? 120 : 24);

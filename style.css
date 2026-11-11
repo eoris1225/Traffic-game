@@ -340,6 +340,63 @@ button.stCard:hover{transform:translateY(-2px)}
 .stCard .stStars svg.on{color:var(--yellow)}.stCard .stStars svg.on.p{color:var(--purple)}
 .stCard.locked,.stCard.soon{background:#efeadd;color:var(--mute);box-shadow:none}
 .stCard.locked .stNo,.stCard.soon .stNo{color:#c3bca9}
+
+/* ---------- 이야기: 장면·쪽지·엽서·엔딩 ---------- */
+.hdrBtn.snd{margin-left:auto;margin-right:-18px;color:var(--dim);background:none}.hdrBtn.snd+.hdrBtn{margin-left:0}
+.hdrBtn.snd.off,.tLink.snd.off{text-decoration:line-through;opacity:.6}
+.tLink.snd{margin-top:10px;font-size:12px;opacity:.75}
+.tProg{display:flex;align-items:center;gap:2px;margin-top:14px;font-weight:800;font-size:14px;color:#fff;opacity:.9}
+#scene{position:absolute;inset:0;z-index:15;background:linear-gradient(rgba(18,20,27,.2),rgba(18,20,27,.78) 70%);cursor:pointer}
+#sceneImg{position:absolute;left:max(10px,calc(50% - 390px));bottom:26px;width:250px;pointer-events:none;transform-origin:50% 90%}
+#scene.who-angus #sceneImg{left:auto;right:max(10px,calc(50% - 390px))}
+#sceneImg.pop{animation:pipPop .36s cubic-bezier(.3,1.5,.5,1)}
+#sceneBubble{position:absolute;left:max(250px,calc(50% - 150px));bottom:74px;width:min(520px,calc(100% - 270px));background:var(--cream);color:var(--ink);border-radius:14px;padding:13px 20px 16px;box-shadow:0 5px 0 var(--ink)}
+#scene.who-angus #sceneBubble{left:auto;right:max(250px,calc(50% - 150px))}
+#sceneBubble b{font-size:13px;font-weight:900;color:var(--green)}#sceneBubble b small{font-weight:600;color:var(--mute);margin-left:4px}
+#scene.who-angus #sceneBubble b{color:#a2541f}
+#sceneBubble p{margin:5px 0 0;font-size:17px;line-height:1.6;font-weight:700;min-height:3.2em}
+#sceneNext{display:none;position:absolute;right:14px;bottom:9px;border:6px solid transparent;border-top:8px solid var(--green2);border-bottom:0;animation:nextBob .7s ease-in-out infinite}
+#scene.ready #sceneNext{display:block}
+#sceneSkip{position:absolute;right:14px;top:70px;padding:6px 12px;border-radius:7px;background:rgba(28,31,39,.72);color:#fff;font-weight:700}
+/* 쪽지가 말할 때: 노란 접착 메모가 가운데에 */
+#scene.who-note #sceneBubble{left:50%;right:auto;bottom:34%;width:min(400px,calc(100% - 40px));transform:translateX(-50%) rotate(-2deg);background:#ffe27a;border-radius:3px;box-shadow:0 10px 22px rgba(0,0,0,.35);padding:22px 24px 26px;animation:endIn .4s cubic-bezier(.3,1.4,.5,1)}
+#scene.who-note #sceneBubble b{color:#8a6a00;letter-spacing:.04em}
+#scene.who-note #sceneBubble p{font-size:19px;font-weight:800;line-height:1.7}
+.memo{position:relative;margin:10px 0 4px;padding:9px 12px 10px;background:#ffe27a;color:#3a3210;border-radius:2px;transform:rotate(-1.2deg);box-shadow:0 3px 0 rgba(0,0,0,.12);text-align:left}
+.memo small{display:block;font-weight:900;font-size:11px;letter-spacing:.04em;color:#8a6a00}
+.memo p{margin:2px 0 0!important;font-weight:700;font-size:13.5px;line-height:1.5}
+.memo.by-pip{background:#d9ecdf;color:#17382b;transform:rotate(.9deg)}.memo.by-pip small{color:var(--green)}
+#resMail{margin:2px 0 10px}
+#resMail em{display:block;font-style:normal;font-weight:900;font-size:12px;color:var(--green);margin-bottom:5px}
+.post{position:relative;text-align:left;background:#fff;border-radius:4px;padding:10px 54px 11px 12px;box-shadow:0 0 0 1px #dcd6c6,0 3px 0 #dcd6c6;background-image:repeating-linear-gradient(135deg,#e5483f 0 8px,transparent 8px 16px,#1d5fbf 16px 24px,transparent 24px 32px);background-size:100% 4px;background-repeat:no-repeat;background-position:0 100%}
+.post small{display:block;font-weight:900;font-size:11.5px;color:var(--blue)}
+.post p{margin:3px 0 0!important;font-size:13.5px;line-height:1.55;font-weight:600;color:var(--ink)}
+.post .stampette{position:absolute;right:9px;top:9px;width:36px;height:42px;display:grid;place-items:center;border:2px dashed #c9b28a;border-radius:3px;font-style:normal;font-weight:900;font-size:12px;color:#a2541f;background:#f6efe0;transform:rotate(4deg)}
+.post.fresh{animation:endIn .5s cubic-bezier(.3,1.4,.5,1)}
+.post.locked{background:#ece7da;box-shadow:none;background-image:none}.post.locked p{color:#a9a392}.post.locked .stampette{opacity:.4}
+#mailList h3{margin:16px 0 8px;font-size:17px}#mailList h3 b{color:var(--blue);margin-right:6px}
+.postRow{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.selStars{display:flex;align-items:center;gap:3px;margin-left:16px;font-weight:800;color:var(--mute)}.selStars b{color:var(--ink);font-size:16px}
+.mailBtn{margin-left:auto;margin-right:10px;padding:7px 13px;border-radius:8px;background:var(--blue);color:#fff;font-weight:800;box-shadow:0 3px 0 #123f80}
+.mailBtn b{margin-left:4px;opacity:.85}.mailBtn:active{transform:translateY(3px);box-shadow:none}
+.wSec h3 small{margin-left:10px;font-family:var(--font);font-size:13px;font-weight:600;color:var(--mute);letter-spacing:0}
+#ending{position:absolute;inset:0;z-index:16;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(18,20,27,.8);overflow:auto}
+.endCard.big{width:min(480px,100%)}
+.endCard.big h2{color:var(--green)}
+#endingRows{list-style:none;margin:0 0 12px;padding:0}
+#endingRows li{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px dashed #c9c3b2;font-weight:700;font-size:14px}
+#endingRows b{font-size:20px;font-weight:900}
+.endCard .note{font-size:13px;color:var(--mute);margin-bottom:6px}.endCard .thanks{font-weight:900;margin-bottom:18px}
+#endingPip{position:absolute;right:-70px;top:-104px;width:190px;transform:rotate(9deg);pointer-events:none}
+#endingMoose{position:absolute;left:-132px;bottom:-26px;width:160px;transform:rotate(-7deg);pointer-events:none}
+#endingStamp{font-size:24px;border-color:var(--green);color:var(--green)}
+@media (max-width:760px){
+  #sceneImg{width:132px;left:2px;bottom:14px}#scene.who-angus #sceneImg{right:2px}
+  #sceneBubble{left:118px;right:10px;width:auto;bottom:40px;padding:10px 14px 13px}#scene.who-angus #sceneBubble{left:10px;right:118px}
+  #sceneBubble p{font-size:14.5px}#sceneSkip{top:66px}
+  #endingPip{width:120px;right:-10px;top:-84px}#endingMoose{display:none}
+  .selStars{margin-left:8px}.mailBtn{padding:6px 9px}
+}
 @media (max-width:760px){.hdrBtn{display:none}}
 
 #endBody b.all{display:inline-block;padding:0 6px;font-size:1.25em;color:var(--red);transform:rotate(-2deg);border-bottom:3px double var(--red)}
@@ -448,3 +505,7 @@ body.tutoring #caption{display:none}
 .mooseLine p{margin:2px 0 0;font-size:13.5px;font-weight:600;line-height:1.5}
 #btnHint.on{background:var(--yellow);color:var(--ink)}
 @media (max-width:760px){.wRow{grid-template-columns:repeat(2,1fr)}.stCard{min-height:84px}}
+
+/* 결과 카드: 버튼이 많아져도 줄이 깨지지 않게 */
+#result .card{width:min(430px,100%);max-height:calc(100% - 16px);overflow:auto}
+.resBtns{flex-wrap:wrap;row-gap:12px}.resBtns button{white-space:nowrap}.resBtns .cta{flex:1 0 100%}

@@ -193,6 +193,7 @@
   function afterEdit() {
     graph = F.buildGraph(tiles); conflicts = F.conflictIndex(tiles);
     updateBudget(); save(); rebuild3d(); schedulePredict();
+    document.dispatchEvent(new CustomEvent('flow-edit'));
   }
   function pushUndo() { undo.push(JSON.stringify(tiles)); if (undo.length > 60) undo.shift(); }
 
@@ -249,6 +250,7 @@
       : `고치기 전 ${baseM.perCapita.toFixed(1)}초 → <b>${m.perCapita.toFixed(1)}초</b> · 도착 <b>${m.arrived}/${m.total}</b> · 예산 <b>${won(c)}</b>`;
     if (window.FlowMoose) window.FlowMoose.result($('resMoose'), ST, progress, isBefore ? -1 : st);
     $('result').classList.remove('hidden'); setCaption('');
+    document.dispatchEvent(new CustomEvent('flow-result', { detail: { id: ST.id, stars: st, pc: m.perCapita, base: baseM.perCapita, cost: c, before: isBefore } }));
   }
 
   /* ---------- 상태 띠 ---------- */

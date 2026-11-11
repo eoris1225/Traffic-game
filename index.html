@@ -3,7 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>FLOW LAB — 마비된 도심을 풀어라</title>
+<title>FLOW LAB — 도로과의 마지막 한 해</title>
+<meta name="description" content="폐지 심사를 앞둔 도로과의 새 관리자가 되어, 시골·항구·도시·산의 막힌 길을 고치는 도로 설계 퍼즐. 길을 더 놓는 것만이 답은 아닙니다.">
+<meta name="theme-color" content="#1c1f27">
+<meta property="og:title" content="FLOW LAB — 도로과의 마지막 한 해">
+<meta property="og:description" content="펭귄 주임과 함께 스무 구역의 출근길을 고치는 도로 설계 퍼즐.">
+<meta property="og:type" content="website">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,6 +20,7 @@
   <header>
     <div class="brand"><span class="mark"><i></i><i></i><i></i></span><h1>FLOW<b>LAB</b></h1></div>
     <nav id="stages"></nav>
+    <button id="btnSound" class="hdrBtn snd" title="소리 켜기 / 끄기"></button>
     <button id="btnStages" class="hdrBtn">스테이지 선택</button>
   </header>
 
@@ -61,6 +71,7 @@
         <small id="briefNo"></small>
         <h2 id="briefName"></h2>
         <p id="briefTask"></p>
+        <div id="briefMemo" class="memo"></div>
         <div id="briefMoose" class="mooseLine"></div>
         <ul id="briefGoals" class="goals"></ul>
         <div id="briefTools"></div>
@@ -74,12 +85,33 @@
         <ul id="resGoals" class="goals"></ul>
         <p id="resBody"></p>
         <div id="resMoose" class="mooseLine"></div>
+        <div id="resMail"></div>
         <div class="resBtns">
           <button id="resNext" class="cta">다음 스테이지</button>
           <button id="resEdit" class="link">다시 고치기</button>
+          <button id="resShare" class="link"></button>
           <button id="resStats" class="link">수치 확인</button>
           <button id="resClose" class="link">닫기</button>
         </div>
+      </div>
+    </div>
+
+    <div id="scene" class="hidden">
+      <img id="sceneImg" alt="">
+      <div id="sceneBubble"><b id="sceneName"></b><p id="sceneText"></p><i id="sceneNext"></i></div>
+      <button id="sceneSkip"></button>
+    </div>
+    <div id="ending" class="hidden">
+      <div class="endCard big">
+        <img id="endingPip" alt=""><img id="endingMoose" alt="">
+        <small id="endingForm"></small>
+        <h2 id="endingTitle"></h2>
+        <p id="endingBody"></p>
+        <ul id="endingRows"></ul>
+        <p id="endingNote" class="note"></p>
+        <p id="endingThanks" class="thanks"></p>
+        <div class="stamp" id="endingStamp"></div>
+        <button id="endingGo" class="tGo"></button>
       </div>
     </div>
 
@@ -122,6 +154,8 @@
         <p id="tLine"></p>
         <button id="tStart" class="tGo"></button>
         <button id="tAlt" class="tLink"></button>
+        <span id="tProg" class="tProg"></span>
+        <button id="tSound" class="tLink snd"></button>
       </div></div>
     </div>
   </div>
@@ -129,8 +163,15 @@
 
 <div id="stageSel" class="modal hidden">
   <div class="sheet">
-    <div class="sheetHead"><h2>스테이지</h2><button id="stagesClose" class="ib dark"><i data-ic="close"></i></button></div>
+    <div class="sheetHead"><h2>스테이지</h2><span id="selStars" class="selStars"></span><button id="btnMail" class="mailBtn"></button><button id="stagesClose" class="ib dark"><i data-ic="close"></i></button></div>
     <div id="stageList"></div>
+  </div>
+</div>
+
+<div id="mail" class="modal hidden">
+  <div class="sheet">
+    <div class="sheetHead"><h2 id="mailHead"></h2><button id="mailClose" class="ib dark"><i data-ic="close"></i></button></div>
+    <div id="mailList"></div>
   </div>
 </div>
 
@@ -200,10 +241,12 @@
 <script src="js/render.js"></script>
 <script src="js/render3d.js"></script>
 <script src="js/script.js"></script>
+<script src="js/sound.js"></script>
 <script src="js/main.js"></script>
 <script src="js/penguin.js"></script>
 <script src="js/lecture.js"></script>
 <script src="js/moose.js"></script>
 <script src="js/tutorial.js"></script>
+<script src="js/story.js"></script>
 </body>
 </html>

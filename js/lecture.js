@@ -163,7 +163,7 @@
   let topic = null, si = 0, sc = null, segs = [], shownN = 0, typeT = 0, open = false;
   const typing = () => shownN < segs.length;
   const paint = () => { txt.innerHTML = segs.slice(0, shownN).join(''); ask.classList.toggle('ready', !typing()); };
-  function tick() { shownN = Math.min(segs.length, shownN + 1); paint(); if (typing()) { const ch = segs[shownN - 1]; typeT = setTimeout(tick, ch.length > 1 ? 140 : /[!?.…—,]/.test(ch) ? 110 : 22); } }
+  function tick() { shownN = Math.min(segs.length, shownN + 1); paint(); if (window.FlowSound && shownN % 2) window.FlowSound.blip('pip'); if (typing()) { const ch = segs[shownN - 1]; typeT = setTimeout(tick, ch.length > 1 ? 140 : /[!?.…—,]/.test(ch) ? 110 : 22); } }
   function slide(k) {
     clearTimeout(typeT); si = k; const s = topic.slides[k];
     sc = s.s ? scene(s.s) : null; if (s.poster) drawPoster(s.poster);
