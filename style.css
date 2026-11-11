@@ -418,3 +418,4 @@ body.tutoring #caption{display:none}
   #tut.tight:not(.dock-top) #tutPip{bottom:70px}#tut.tight:not(.dock-top) #tutBubble{bottom:78px}
 }
 #tut.dock-top #tutSkip{top:auto;bottom:92px}
+#tutSpot.nodim{box-shadow:0 0 0 3px var(--yellow),0 0 14px 4px rgba(255,201,40,.55)!important;background:none!important}

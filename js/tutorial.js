@@ -30,8 +30,8 @@
     { pose: 'think', spot: ROUTE[0], text: T.first, wait: () => roadAt(ROUTE[0]) || L.connected() || L.mode !== 'edit' },
     { pose: 'think', spot: { cells: ROUTE }, free: true, text: T.draw, wait: () => L.connected() || L.mode !== 'edit' },
     { pose: 'found', spot: () => $('btnPlay'), text: T.run, wait: () => L.mode === 'run' || resultUp() },
-    { pose: 'point', spot: () => $('hud'), text: T.hud },
-    { pose: 'talk', spot: () => [$('btnSpeed'), $('btnSkip')], text: T.wait, wait: resultUp },
+    { pose: 'point', noDim: true, spot: () => $('hud'), text: T.hud },
+    { pose: 'talk', noDim: true, spot: () => [$('btnSpeed'), $('btnSkip')], text: T.wait, wait: resultUp },
     { pose: 'cheer', spot: () => document.querySelector('#result .card'), text: T.result },
     { pose: 'talk', guide: true, spot: () => $('guideBtn'), text: T.help, enter: () => $('result').classList.add('hidden') },
     { pose: 'cheer', text: T.bye }
@@ -138,6 +138,7 @@
       if (step) {
         mark.style.display = 'none'; markBox = null;
         hole = step.spot ? rectOf(typeof step.spot === 'function' ? step.spot() : step.spot) : null;
+        spot.classList.toggle('nodim', !!step.noDim);             // 지켜봐야 하는 단계에서는 화면을 어둡게 하지 않고 테두리만 친다
         if (hole) { spot.style.display = 'block'; spot.style.left = hole[0] + 'px'; spot.style.top = hole[1] + 'px'; spot.style.width = hole[2] + 'px'; spot.style.height = hole[3] + 'px'; }
         else spot.style.display = 'none';
         // 말풍선은 가리켜야 할 곳을 덮지 않게, 위아래 중 빈 자리가 넓은 쪽에 선다
