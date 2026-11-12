@@ -19,6 +19,14 @@
   // 다른 기기·이전 판에서 이미 별을 받은 스테이지의 엽서는 조용히 채워 둔다
   STAGES.forEach(s => { if (stars(s.id) > 0 && !save.mail[s.id]) save.mail[s.id] = 1; });
 
+  /* 대본의 쪽지·편지는 스테이지 번호('1-1')나 id('r1')로 찾는다.
+     보낸 사람은 '—' 로 시작하는 서명 줄에서 읽고, 서명 끝의 '(그림: …)' 같은 그림 설명은 화면에 내지 않는다. */
+  const memoOf = s => ST.memo[s.no] || ST.memo[s.id];
+  const SKETCH = /\s*\((그림|drawing)\s*:[^)]*\)\s*$/i;
+  const signOf = lines => { const l = (lines || []).find(t => /^[—-]/.test(t)); return l ? l.replace(/^[—-]\s*/, '').replace(SKETCH, '') : ''; };
+  const mailOf = s => { const m = ST.mail[s.no] || ST.mail[s.id]; if (!m) return null;
+    return Object.assign({ from: m.from || signOf(m.ko), fromEn: m.fromEn || signOf(m.en) }, m, { doodle: m.doodle === 'none' ? '' : m.doodle }); };
+
   /* ---------- 장면 재생 ---------- */
   const el = $('scene'), txt = $('sceneText');
   let lines = null, li = 0, segs = [], n = 0, tt = 0, after = null, who = 'pip';
@@ -59,7 +67,7 @@
 
   /* ---------- 쪽지(안내 카드) ---------- */
   function memo(stage) {
-    const m = ST.memo[stage.id], box = $('briefMemo'); if (!box) return;
+    const m = memoOf(stage), box = $('briefMemo'); if (!box) return;
     if (!m) { box.style.display = 'none'; return; }
     box.className = 'memo by-' + m[0]; box.style.display = ''; box.innerHTML = '<small>' + ST.memoBy[m[0]] + '</small><p>' + m[1] + '</p>';
   }
@@ -103,14 +111,14 @@
   const kidText = (t, li) => `<span style="color:${INK[li % INK.length]}">` + [...t].map((ch, k) => ch === ' ' ? ' ' : `<i style="transform:rotate(${((hsh(li * 31 + k) - .5) * 15).toFixed(1)}deg) translateY(${((hsh(li * 17 + k * 3) - .5) * 5).toFixed(1)}px);font-size:${(.92 + hsh(li * 7 + k) * .22).toFixed(2)}em">${ch}</i>`).join('') + '</span>';
   let cur = null, lang = 'ko';
   function paper(s) {
-    const m = ST.mail[s.id], lines = m[lang] || m.ko;
-    const body = lines.map((t, k) => { const sign = /^[—-]/.test(t) || (m.hand === 'kid' && k === lines.length - 2); return `<p class="${k === 0 ? 'head' : sign ? 'sign' : ''}">${m.hand === 'kid' ? kidText(t, k) : t}</p>`; }).join('');
+    const m = mailOf(s), lines = (m[lang] || m.ko).map(t => t.replace(SKETCH, ''));
+    const body = lines.map((t, k) => { const sign = /^[—-]/.test(t); return `<p class="${k === 0 ? 'head' : sign ? 'sign' : ''}">${m.hand === 'kid' ? kidText(t, k) : t}</p>`; }).join('');
     return `<div class="sheetPaper paper-${m.paper} hand-${m.hand}" lang="${lang}"><i class="postmark">${s.place}<br>${s.no}</i>${body}${m.doodle && DOODLE[m.doodle] ? `<div class="doodle d-${m.doodle}">${DOODLE[m.doodle]}</div>` : ''}</div>`;
   }
   function openLetter(id) {
     const s = STAGES.find(x => x.id === id); if (!s || !save.mail[id]) return;
     cur = s; if (save.mail[id] !== 2) { save.mail[id] = 2; keep(); }
-    $('letterPaper').innerHTML = paper(s); $('letterFrom').textContent = (lang === 'en' ? ST.mail[id].fromEn : ST.mail[id].from) + ' · ' + s.place + ' ' + s.name;
+    $('letterPaper').innerHTML = paper(s); $('letterFrom').textContent = (lang === 'en' ? mailOf(s).fromEn : mailOf(s).from) + ' · ' + s.place + ' ' + s.name;
     $('letterLang').textContent = lang === 'ko' ? 'EN' : '한국어'; $('letterLang').title = lang === 'ko' ? '영어 원문 보기' : '한국어로 보기';
     const got = STAGES.filter(x => save.mail[x.id]), k = got.indexOf(s);
     $('letterPrev').style.visibility = k > 0 ? '' : 'hidden'; $('letterNext').style.visibility = k < got.length - 1 ? '' : 'hidden';
@@ -121,7 +129,7 @@
   $('letterLang').onclick = e => { e.stopPropagation(); lang = lang === 'ko' ? 'en' : 'ko'; openLetter(cur.id); };
   const closeLetter = () => { $('letter').classList.add('hidden'); if (!$('mail').classList.contains('hidden')) openMail(); refresh(); };
   $('letterClose').onclick = closeLetter; $('letter').addEventListener('pointerdown', e => { if (e.target === $('letter')) closeLetter(); });
-  const envelope = s => { const m = ST.mail[s.id], got = save.mail[s.id];
+  const envelope = s => { const m = mailOf(s), got = save.mail[s.id];
     return got ? `<button class="env env-${m.paper}${got !== 2 ? ' unread' : ''}" data-letter="${s.id}"><i class="stampette">${s.no}</i><small>보낸 사람</small><b class="hand-${m.hand === 'type' ? 'type' : m.hand}">${m.from}</b><span>${s.place} · ${s.name}</span></button>`
                : `<div class="env locked"><i class="stampette">${s.no}</i><span>${ST.mailLocked}</span></div>`; };
   function openMail() {
@@ -188,7 +196,7 @@
   const sndLabel = () => { const on = !window.FlowSound || window.FlowSound.on; document.querySelectorAll('.snd').forEach(b => { b.textContent = on ? '소리 켜짐' : '소리 꺼짐'; b.classList.toggle('off', !on); }); };
   document.querySelectorAll('.snd').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); if (window.FlowSound) window.FlowSound.toggle(); sndLabel(); }));
   sndLabel();
-  $('sceneSkip').textContent = ST.ending.skip;
+  $('sceneSkip').textContent = ST.ending.skip || '건너뛰기';
   refresh();
   window.FlowStory = { play, ending, openMail, get save() { return save; } };
 })();

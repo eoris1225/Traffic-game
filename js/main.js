@@ -247,7 +247,7 @@
     $('resStars').innerHTML = starRow(st);
     goalList($('resGoals'), m, c);
     $('resBody').innerHTML = isBefore
-      ? `평균 이동시간 <b>${m.perCapita.toFixed(1)}초</b> · 사고 <b>${m.accidents}건</b> · 도착 <b>${m.arrived}/${m.total}</b>`
+      ? `평균 통행 시간 <b>${m.perCapita.toFixed(1)}초</b> · 사고 <b>${m.accidents}건</b> · 도착 <b>${m.arrived}/${m.total}</b>`
       : `고치기 전 ${baseM.perCapita.toFixed(1)}초 → <b>${m.perCapita.toFixed(1)}초</b> · 도착 <b>${m.arrived}/${m.total}</b> · 예산 <b>${won(c)}</b>`;
     if (window.FlowMoose) window.FlowMoose.result($('resMoose'), ST, progress, isBefore ? -1 : st);
     $('result').classList.remove('hidden'); setCaption('');
@@ -303,7 +303,7 @@
     R.lineChart($('chart'), { base: baseSeries, cur: mode === 'before' || !series.length ? baseSeries : series, target: TARGET });
     const pts = [{ cost: 0, pc: baseM.perCapita, base: true }].concat(history.map((h, k) => ({ cost: h.cost, pc: h.pc, clear: h.clear, cur: k === history.length - 1 })));
     R.pareto($('pareto'), { pts, target: TARGET });
-    $('hist').innerHTML = history.length ? '<table><tr><th>설계</th><th>예산</th><th>이동시간</th><th>변화</th><th>사고</th><th>결과</th></tr>' +
+    $('hist').innerHTML = history.length ? '<table><tr><th>설계</th><th>예산</th><th>통행 시간</th><th>변화</th><th>사고</th><th>결과</th></tr>' +
       history.map((h, k) => `<tr><td>#${k + 1}</td><td>${won(h.cost)}</td><td>${h.pc.toFixed(1)}초</td><td>${(h.pc - baseM.perCapita).toFixed(1)}</td><td>${h.acc}</td><td class="${h.clear ? 'ok' : 'ng'}">${h.clear ? '★'.repeat(Math.min(3, h.stars)) + (h.stars > 3 ? '<span style="color:#8b5cf6">★</span>' : '') : '실패'}</td></tr>`).reverse().join('') + '</table>'
       : '<span style="color:#6f7482">실행한 결과가 여기에 쌓입니다. 서로 다른 설계를 비교해 보세요.</span>';
     const mx = baseSim.mix, items = [['normal', '일반'], ['speeder', '과속'], ['novice', '초보'], ['tractor', '경운기'], ['moto', '오토바이']].filter(i => mx[i[0]] > 0), tot = items.reduce((a, i) => a + mx[i[0]], 0) || 1;
