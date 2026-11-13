@@ -561,7 +561,7 @@
   $('captionBtn').onclick = startEdit;
   $('btnUndo').onclick = doUndo;
   $('btnReset').onclick = () => { if (mode !== 'edit') return; pushUndo(); tiles = F.cloneTiles(base); afterEdit(); };
-  $('btnSpeed').onclick = () => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; $('btnSpeed').textContent = '×' + speed; };
+  $('btnSpeed').onclick = () => { speed = speed === 1 ? 2 : speed === 2 ? 4 : speed === 4 ? 8 : 1; $('btnSpeed').textContent = '×' + speed; };
   $('btnSkip').onclick = () => { if (sim && !sim.done) { sim.run(); finish(); } };
   $('btnStats').onclick = $('resStats').onclick = openStats;
   $('statsClose').onclick = () => $('stats').classList.add('hidden');
