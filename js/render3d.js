@@ -121,7 +121,9 @@
     function fitDist(mode) {
       const a = vw / vh;
       if (portrait()) return mode === 'top' ? Math.max((W + 4.2) / .536, (H + 1) / (.536 * a)) : Math.max((W + 5) / .536, (H + 2.2) / (.536 * a));
-      return mode === 'top' ? Math.max(22, 26 / a) : Math.max(20, 27 / a);
+      /* 키가 낮은 가로 화면(폰 가로)에서는 상단바와 도구함이 지도를 가리므로 그만큼 물러선다 */
+      const bars = (H + 1.2) / .536 * vh / Math.max(120, vh - 116);
+      return mode === 'top' ? Math.max(22, 26 / a, bars) : Math.max(20, 27 / a);
     }
     function viewOf(mode) {
       const v = VIEWS[mode];

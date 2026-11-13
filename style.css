@@ -703,3 +703,39 @@ button.env:hover{transform:translateY(-3px) rotate(-.6deg)}
   #hud .fig b,#hudTime,#hudAcc,#hudArr{font-size:22px}
   #hudTot{display:inline}
 }
+
+/* ---------- 기기별 손질 ---------- */
+/* 작은 폰: 스테이지 선택 머리글의 별 합계와 우편함 버튼이 겹치지 않게 */
+@media (max-width:420px){
+  .sheetHead h2{font-size:23px}
+  .selStars{margin-left:6px;font-size:12px}.selStars b{font-size:14px}
+  .mailBtn{margin-right:4px;padding:6px 8px;font-size:12px;white-space:nowrap}
+}
+/* 설명회: 쪽 번호가 테이프에 가리지 않게, 폰에서는 닫기 버튼을 자료판 밖 아래로 */
+.tape.b{right:70px}
+@media (max-width:760px) and (min-height:521px){
+  #askClose{top:auto;bottom:max(14px,env(safe-area-inset-bottom));right:50%;transform:translateX(50%);padding:10px 20px;background:rgba(28,31,39,.82)}
+}
+/* 폰 가로: 안내·결과 카드를 두 단으로 펼쳐 시작 버튼까지 한 화면에 */
+@media (max-height:440px) and (min-width:600px){
+  #brief .card,#result .card{width:min(720px,100%);column-count:2;column-gap:26px;column-rule:1px dashed #d5cfbe}
+  #brief .card>*,#result .card>*{break-inside:avoid}
+  #briefGoals,#resBody{break-before:column}
+  #resSign{font-size:24px;margin:0 0 4px}#resStars svg{width:34px;height:34px}
+  #briefTools{margin:8px 0 10px}
+  .endCard.big{width:min(640px,100%)}
+}
+/* 노치·홈 바가 있는 기기: 가장자리 버튼이 가려지지 않게 */
+@supports (padding:max(0px)){
+  #topbar{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+  @media (max-width:560px){#topbar{padding-left:max(4px,env(safe-area-inset-left));padding-right:max(4px,env(safe-area-inset-right))}}
+  @media (min-width:761px){#hud{left:max(12px,env(safe-area-inset-left))}#guideBtn{right:max(12px,env(safe-area-inset-right))}}
+  @media (max-width:760px){#tray{bottom:max(8px,env(safe-area-inset-bottom))}#hud{bottom:max(8px,env(safe-area-inset-bottom))}}
+}
+/* 한글 줄바꿈: 낱말 중간에서 끊지 않는다. 제목과 짧은 문구는 줄 길이를 고르게 */
+body{word-break:keep-all;overflow-wrap:break-word;line-break:strict}
+h1,h2,h3,#briefTask,#caption,.tSign p,.memo p,#toast,#toolInfo{text-wrap:balance}
+#tutText,#sceneText,#askText,.mooseLine,.how li,.lead,.hint,.endCard p{text-wrap:pretty}
+/* 설명회가 떠 있는 동안에는 뒤의 도구함을 숨겨 닫기 버튼과 겹치지 않게 */
+#stageWrap:has(#ask:not(.hidden)) #tray{visibility:hidden}
+#stageWrap:has(#brief:not(.hidden)) #caption{opacity:0}

@@ -515,7 +515,7 @@
     if (!dark) { ctx.fillStyle = col; ctx.fillRect(x - w / 2 + 5, y - 6, 4, 11); }
     ctx.fillStyle = dark ? '#fff' : '#1c1f27'; ctx.fillText(text, x + (dark ? 0 : 3), y);
   }
-  const TYPE_NAME = { normal: '일반 운전자', speeder: '과속 운전자', novice: '초보 운전자', bus: '버스 (승객 20명)', tractor: '경운기', moto: '오토바이' };
+  const TYPE_NAME = { normal: '일반 운전자', speeder: '과속 운전자', novice: '초보 운전자', bus: '버스 (승객 20명)', tractor: '트랙터', moto: '오토바이' };
   function overlay3d(ctx, st, V) {
     const sim = st.sim; if (!sim) return;
     const tr = st.tracked;

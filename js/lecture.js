@@ -58,7 +58,7 @@
       { s: a => { a.road(0, 1, 4, 1, { oneway: 1 }); a.queue('normal', 4.2, 1.36, 1, -1); a.car('normal', [[-.6, 1.64], [5.6, 1.64]], { v: 1.2 }); a.note(3.9, .55, '역주행 불가'); a.ring(4.2, 1.36, .34); } }] }),
     Object.assign(T('demolish', '철거'), { slides: [
       { s: a => { cross(a); a.at(2, 0).road = false; a.note(2.5, .5, '여기 길이 있었음'); a.ring(2.5, .5, .45); flow(a); } },
-      { s: a => { row(a); a.sc.mode = 'edit'; for (let x = 0; x < 5; x++) a.at(x, 1).locked = true; a.note(2.5, .5, '잠긴 도로는 철거 불가'); } }] }),
+      { s: a => { row(a); a.sc.mode = 'edit'; for (let x = 0; x < 5; x++) a.at(x, 1).locked = true; a.note(2.5, .5, '보호 구간은 철거 불가'); } }] }),
     Object.assign(T('guide', '유도선'), { slides: [
       { s: a => { cross(a); a.queue('novice', 1.55, 1.64, 1, 1, { mark: '?' }); a.queue('normal', 1.19, 1.64, 2, 1); a.note(1.6, .5, '어느 쪽이더라…'); } },
       { s: a => { cross(a); a.at(2, 1).guide = true; a.at(1, 1).guide = true; a.car('novice', E(1), { v: .8 }); a.car('normal', E(1), { v: .8, ph: .5 }); a.car('normal', S(2), { ph: .2 }); a.note(2.5, 2.8, '색을 따라가면 됨', true); } }] }),
@@ -78,7 +78,7 @@
       { s: a => { a.road(0, 1, 1, 1); a.road(3, 1, 4, 1); for (let y = 0; y < 3; y++) a.base(2, y, 'water'); a.queue('normal', 1.3, 1.64, 2, 1); a.note(2.5, .4, '차는 헤엄을 못 침'); } },
       { s: a => { a.road(0, 1, 1, 1); a.road(3, 1, 4, 1); for (let y = 0; y < 3; y++) a.base(2, y, 'water'); a.at(2, 1).bridge = 'H'; a.car('normal', E(1), { v: 1.1, layer: [1.6, 3.4, 1] }); a.car('normal', Wd(1), { v: 1.1, ph: .4, layer: [1.6, 3.4, 1] }); a.note(2.5, .4, '다리로 건넘', true); } },
       { s: a => { cross(a); a.at(2, 1).bridge = 'V'; flow(a); a.car('normal', S(2), { layer: [.6, 2.4, 1] }); a.car('speeder', N(2), { ph: .5, layer: [.6, 2.4, 1] }); a.note(3.9, .5, '만나지 않고 지나감', true); } }] }),
-    Object.assign(T('tunnel', '지하차도'), { slides: [
+    Object.assign(T('tunnel', '터널'), { slides: [
       { s: a => { a.road(0, 1, 1, 1); a.road(3, 1, 4, 1); a.base(2, 1, 'park'); a.base(2, 0, 'park'); a.base(2, 2, 'park'); a.queue('normal', 1.3, 1.64, 2, 1); a.note(2.5, .2, ''); a.note(3.9, .5, '공원은 밀 수 없음'); } },
       { s: a => { a.road(0, 1, 1, 1); a.road(3, 1, 4, 1); a.base(2, 1, 'park'); a.base(2, 0, 'park'); a.base(2, 2, 'park'); a.at(2, 1).tunnel = 'H'; a.car('normal', E(1), { v: 1.1, layer: [1.6, 3.4, 2] }); a.car('normal', Wd(1), { v: 1.1, ph: .5, layer: [1.6, 3.4, 2] }); a.note(3.9, .5, '밑으로 지나감', true); } }] }),
     Object.assign(T('overpass', '육교'), { slides: [
@@ -97,7 +97,7 @@
       { s: a => { cross(a); a.queue('novice', 1.55, 1.64, 1, 1, { mark: '?' }); a.queue('normal', 1.19, 1.64, 1, 1, { mark: '!' }); a.queue('normal', .83, 1.64, 1, 1, { mark: '···' }); for (let x = 0; x < 2; x++) a.heat(x, 1, 1); a.heat(2, 1, .5); } },
       { s: a => { row(a); a.car('normal', E(1), { v: 1.2 }); a.car('speeder', E(1), { v: 1.2, ph: .3 }); a.car('novice', E(1), { v: 1.2, ph: .6 }); a.car('bus', Wd(1), { v: 1 }); a.note(2.5, .5, '파랑 일반 · 빨강 과속 · 노랑 초보 · 초록 버스'); } }] },
     { id: 'stars', nm: '별과 목표', icon: '{star}', cost: '4단계', slides: [
-      { poster: [['★', '평균 통행 시간 24초 이하'], ['★', '사고 없이'], ['★', '평균 통행 시간 20초 이하'], ['p', '17초 이하를 $1,200 안에']] },
+      { poster: [['★', '평균 통행 시간 24초 이하'], ['★', '사고 없이'], ['★', '평균 통행 시간 20초 이하'], ['p', '17초 이하를 $1.2M 안에서']] },
       { poster: [['$', '예산은 스테이지마다 다릅니다'], ['↺', '같은 도구로 다시 누르면 전액 환불'], ['~', '위쪽 "예상" 은 다른 날 아침의 추정치']] }] }
   ];
   const TOPIC = {}; TOPICS.forEach(t => TOPIC[t.id] = t);

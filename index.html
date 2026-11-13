@@ -2,12 +2,12 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>FLOW LAB — 도로과의 마지막 한 해</title>
 <meta name="description" content="폐지 심사를 앞둔 도로과의 새 소장이 되어, 시골·항구·도시·산의 막힌 길을 고치는 도로 설계 퍼즐. 길을 더 놓는 것만이 답은 아닙니다.">
 <meta name="theme-color" content="#1c1f27">
 <meta property="og:title" content="FLOW LAB — 도로과의 마지막 한 해">
-<meta property="og:description" content="펭귄 주임과 함께 스물네 구역의 출근길을 고치는 도로 설계 퍼즐.">
+<meta property="og:description" content="펭귄 주임과 함께 스물네 곳의 출근길을 고치는 도로 설계 퍼즐.">
 <meta property="og:type" content="website">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -37,12 +37,12 @@
         <button id="btnStages2" class="ib" title="스테이지 선택"><i data-ic="list"></i></button>
         <button id="btnHelp" class="ib" title="게임 방법"><i data-ic="help"></i></button>
         <button id="btnStats" class="ib" title="수치 확인"><i data-ic="chart"></i></button>
-        <button id="btnBefore" class="ib" title="고치기 전 상황 다시 보기"><i data-ic="rewind"></i></button>
+        <button id="btnBefore" class="ib" title="고치기 전 모습 다시 보기"><i data-ic="rewind"></i></button>
         <button id="btnGoals" class="stars" title="목표 보기"></button>
       </div>
       <div id="budget" title="사용한 예산 / 총예산"><b id="budBig">$0</b><span class="of" id="budOf">/ $3.5M</span></div>
       <div class="side right">
-        <button id="btnHint" class="ib" title="힌트: 추천하는 칸을 지도에 표시"><i data-ic="bulb"></i></button>
+        <button id="btnHint" class="ib" title="힌트: 추천 위치를 지도에 표시"><i data-ic="bulb"></i></button>
         <button id="btnUndo" class="ib" title="되돌리기"><i data-ic="undo"></i></button>
         <button id="btnReset" class="ib" title="처음 도로로 되돌리기"><i data-ic="trash"></i></button>
         <button id="btnSpeed" class="ib num" title="재생 속도">×2</button>
@@ -229,23 +229,23 @@
 
 <div id="help" class="modal hidden">
   <div class="sheet small">
-    <div class="sheetHead"><h2>매일 아침 멈춰 서는 동네</h2><button id="helpClose" class="ib dark"><i data-ic="close"></i></button></div>
-    <p class="lead">바깥 도로는 멀쩡합니다. 이 동네만 출근 시간마다 멈춥니다. 도로를 더 놓는 것이 답이 아닐 수도 있습니다.</p>
+    <div class="sheetHead"><h2>게임 방법</h2><button id="helpClose" class="ib dark"><i data-ic="close"></i></button></div>
+    <p class="lead">출근 시간마다 멈춰 서는 길을 고쳐 주세요. 도로를 더 놓는 것만이 답은 아닙니다.</p>
     <ol class="how">
-      <li><b>관찰</b>어디가 막히는지 지켜보세요. 도로가 붉게 물들수록 심하게 막힌 곳입니다.</li>
-      <li><b>고치기</b>아래에서 도구를 고르고 칸을 누르세요. 같은 도구로 다시 누르면 전액 환불됩니다. 빈 터에는 길을 낼 수 있고, 집·건물·공사 구역은 건드릴 수 없습니다. 강은 다리로만 건넙니다.</li>
-      <li><b>실행</b>같은 차량들이 다시 달립니다.</li>
+      <li><b>살펴보기</b>어디가 막히는지 지켜보세요. 도로가 붉게 물들수록 심하게 막히는 곳이에요.</li>
+      <li><b>고치기</b>아래 도구함에서 도구를 고르고 칸을 누르세요. 같은 도구로 다시 누르면 전액 돌려받아요. 길은 빈 터에만 낼 수 있고, 집·건물·공사 구역은 건드릴 수 없어요. 물은 다리로만 건너요.</li>
+      <li><b>실행</b>같은 차들이 같은 아침을 다시 달려요. 결과가 목표에 닿으면 별을 받아요.</li>
     </ol>
     <h3>목표</h3>
     <ul id="helpGoals" class="goals"></ul>
     <h3>차 위의 표시</h3>
     <div class="legendRow">
-      <span><i class="bub q">?</i>초보가 머뭇거림</span><span><i class="bub bang">!</i>급정거</span><span><i class="bub stuck">···</i>오래 갇힘</span><span><i class="bub cam"></i>단속에 걸려 감속</span>
+      <span><i class="bub q">?</i>초보가 망설이는 중</span><span><i class="bub bang">!</i>급정거</span><span><i class="bub stuck">···</i>오래 갇혀 있음</span><span><i class="bub cam"></i>단속 카메라 앞 감속</span>
     </div>
     <div id="askList" class="askList" style="display:none"></div>
-    <p class="hint">도구나 표시가 궁금하면 화면 오른쪽의 <b>?</b> 를 누르세요. 핍이 그림과 함께 설명해 줍니다.</p>
-    <p class="hint"><button id="helpTut" class="link">처음부터 다시 듣기 (튜토리얼)</button></p>
-    <p class="hint">실행 중 화면을 끌면 시점이 돌아갑니다. 두 손가락을 벌리고 오므리면 확대·축소, 함께 끌면 화면이 옮겨집니다(마우스는 휠과 오른쪽 버튼 끌기). 차량을 누르면 어디로 가는지 보여 줍니다.</p>
+    <p class="hint">도구나 표시가 궁금하면 화면 오른쪽의 <b>?</b>를 누르세요. 핍이 그림과 함께 설명해 줍니다.</p>
+    <p class="hint"><button id="helpTut" class="link">인수인계(튜토리얼) 다시 보기</button></p>
+    <p class="hint">실행 중에 화면을 끌면 시점이 돌아가요. 두 손가락을 벌리거나 오므리면 확대·축소되고, 두 손가락으로 끌면 화면이 옮겨져요(마우스는 휠, 오른쪽 버튼으로 끌기). 차를 누르면 어디로 가는지 보여 줘요.</p>
   </div>
 </div>
 

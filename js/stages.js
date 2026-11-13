@@ -5,7 +5,7 @@
  * 돈: 내부값 100 = $100K (도로 한 칸).
  *
  * 맵 기호(12×8)  . 빈 터   # 도로   ~ 물   F 밭   M 풍차   H 집   B 큰 건물   P 공원   C 공사 구역
- *                K 컨테이너   T 숲   ^ 바위(지하차도로만 통과)   L 잠긴 도로   X 횡단보도   = 기존 다리   숫자 = 출발·도착지
+ *                K 컨테이너   T 숲   ^ 바위(터널로만 통과)   L 잠긴 도로   X 횡단보도   = 기존 다리   숫자 = 출발·도착지
  * goals  ['arrive'] 모두 도착 · ['time', 초] 평균 통행 시간 · ['noacc'] 무사고 · ['cost', 금액] 예산 · ['best', 초, 금액] 보라색 별
  * sol    추천 해법(힌트 버튼이 이 칸들을 표시한다. 검증에도 쓴다) */
 (function (root) {
@@ -42,17 +42,17 @@
         mix: [['normal', .45], ['tractor', .3], ['moto', .25]],
         budget: 1800, tools: ['road', 'demolish'], goals: [['arrive'], ['time', 24], ['cost', 1300]],
         sol: R([3, 0], [4, 0], [4, 1], [4, 2], [4, 3], [3, 6], [4, 6], [4, 5], [4, 4], [5, 3], [6, 3], [7, 3], [8, 3]) },
-      { id: 'r4', name: '경운기 뒤에서', task: '느린 경운기 뒤로 줄이 늘어섭니다. 길을 넓혀 앞지르게 해 주세요', observe: true,
+      { id: 'r4', name: '트랙터 뒤에서', task: '느린 트랙터 뒤로 줄이 늘어섭니다. 길을 넓혀 앞지르게 해 주세요', observe: true,
         rows: ['F..F....F..F', '....H.......', 'F..........F', '1##########3', '....F..F....', '.H........H.', 'F....F.....F', '............'],
         terms: { 1: T('home', '마을'), 3: T('market', '시장') }, flows: flow2(.75, .6), mix: [['normal', .35], ['tractor', .35], ['moto', .3]],
         budget: 3000, tools: ['wide', 'road', 'demolish'], goals: [['time', 17], ['noacc'], ['time', 15.5]],
         sol: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => [x, 3, 'wide']) },
-      { id: 'r5', name: '먼 길 돌아가기', task: '시장가 코앞인데 길은 멀리 돌아갑니다. 지름길을 내 주세요', observe: true,
+      { id: 'r5', name: '먼 길 돌아가기', task: '시장이 코앞인데 길은 멀리 돌아갑니다. 지름길을 내 주세요', observe: true,
         rows: ['1#########..', '.........#..', '..FFF.H..#..', 'F..FF....#..', '......~~.#..', 'H.....~~.#..', '.........#..', '3#########..'],
         terms: { 1: T('home', '마을'), 3: T('market', '시장') }, flows: flow2(.3, .25), mix: [['normal', .5], ['tractor', .25], ['moto', .25]],
         budget: 1200, tools: ['road', 'demolish'], goals: [['time', 16], ['cost', 800], ['cost', 700]],
         sol: R([0, 1], [0, 2], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6]) },
-      { id: 'r6', name: '장날', task: '끊긴 길, 개울, 느린 경운기. 시골에서 배운 것을 전부 써야 장이 섭니다', final: true, need: ['road', 'bridge', 'wide'], scale: 1.5,
+      { id: 'r6', name: '장날', task: '끊긴 길, 개울, 느린 트랙터. 시골에서 배운 것을 전부 써야 장이 섭니다', final: true, need: ['road', 'bridge', 'wide'], scale: 1.5,
         rows: ['F..F...~.F..', '....H..~....', 'F......~...F', '1###...~.##3', '....F..~....', '.H.....~..H.', 'F....F.~...F', '.......~....'],
         terms: { 1: T('home', '마을'), 3: T('market', '시장') }, flows: flow2(.75, .6), mix: [['normal', .35], ['tractor', .35], ['moto', .3]],
         budget: 3600, tools: ['road', 'bridge', 'wide', 'demolish'], goals: [['time', 40], ['arrive'], ['time', 28]],
@@ -130,7 +130,7 @@
         sol: [[5, 4, 'bus'], [6, 4, 'bus'], [2, 4, 'overpass'], [9, 4, 'overpass']] }
     ] },
     { id: 'mountain', name: '산', theme: 'mountain', stages: [
-      { id: 'm1', name: '바위를 뚫고', task: '바위는 밀 수 없습니다. 밑으로 지하차도를 뚫어 주세요',
+      { id: 'm1', name: '바위를 뚫고', task: '바위는 밀 수 없습니다. 밑으로 터널을 뚫어 주세요',
         rows: ['T..T.^^..T..', '.....^^.....', '..T..^^..T..', '1###.^^.###3', '.....^^.....', '.T...^^...T.', '.....^^.....', '..T..^^..T..'],
         terms: { 1: T('home', '산골 마을'), 3: T('market', '읍내') }, flows: flow2(.26, .22), mix: [['normal', .7], ['tractor', .3]],
         budget: 2200, tools: ['road', 'tunnel', 'demolish'], goals: [['arrive'], ['time', 20], ['cost', 1800]],

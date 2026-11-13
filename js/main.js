@@ -58,21 +58,21 @@
 
   /* ---------- 도구 (설명은 일상 언어로) ---------- */
   const TOOLS = [
-    { id: 'road', g: 0, nm: '도로', cost: F.COST.road, desc: '빈 터에 새 길을 냅니다. 칸을 누르거나 끌어서 이어 그리세요. 집·건물·밭에는 놓을 수 없습니다.' },
-    { id: 'wide', g: 0, nm: '차선 확장', cost: F.COST.wide, desc: '2칸 이상 이어 깔면 2차로가 되어 느린 차를 앞지를 수 있어요.' },
-    { id: 'oneway', g: 0, nm: '일방통행', cost: F.COST.oneway, desc: '한쪽 방향으로만 다니게 합니다. 누를 때마다 방향이 바뀌어요.' },
-    { id: 'demolish', g: 0, nm: '철거', cost: F.COST.demolish, desc: '설치한 것은 전액 환불로 회수, 원래 있던 도로는 $50K에 철거.' },
-    { id: 'guide', g: 1, nm: '유도선', cost: F.COST.guide, desc: '길이 갈라지는 교차로 칸에 칠하세요. 초보 운전자가 헤매지 않습니다. 곧은 길에서는 효과가 없어요.' },
-    { id: 'bus', g: 1, nm: '버스 전용', cost: F.COST.bus, desc: '1차로 도로에 이어 칠하면 버스만 다니는 길이 됩니다. 버스엔 20명이 타고 있어요.' },
-    { id: 'rev', g: 1, nm: '가변 차선', cost: F.COST.rev, desc: '가운데 차로가 붐비는 방향 쪽으로 자동으로 바뀝니다. 2칸 이상.' },
-    { id: 'round', g: 2, nm: '회전교차로', cost: F.COST.round, desc: '길이 셋 이상 만나는 곳에 놓으세요. 초보도 망설이지 않고 천천히 돌아 나가 사고가 크게 줄어요.' },
-    { id: 'signal', g: 2, nm: '신호등', cost: F.COST.signal, desc: '차례를 정해 줘서 눈치 싸움과 머뭇거림을 없앱니다.' },
-    { id: 'bridge', g: 2, nm: '다리', cost: F.COST.bridge, desc: '강은 다리로만 건널 수 있습니다. 다른 도로 위로 넘길 때도 씁니다. 누를 때마다 방향 전환.' },
-    { id: 'tunnel', g: 2, nm: '지하차도', cost: F.COST.tunnel, desc: '바위·공원·도로 밑으로 지나갑니다. 누를 때마다 방향 전환.' },
-    { id: 'overpass', g: 2, nm: '육교', cost: F.COST.overpass, desc: '횡단보도 위에 놓으면 차가 보행자를 기다리지 않아도 됩니다.' },
-    { id: 'camera', g: 3, nm: '단속 카메라', cost: F.COST.camera, desc: '주변의 과속 차량만 골라 얌전하게 만듭니다.' },
-    { id: 'bump', g: 3, nm: '방지턱', cost: F.COST.bump, desc: '싸지만 모든 차가 느려집니다.' },
-    { id: 'barricade', g: 3, nm: '통행 차단', cost: F.COST.barricade, desc: '도로를 부수지 않고 막아 둡니다. 잠긴 도로에도 설치 가능.' }
+    { id: 'road', g: 0, nm: '도로', cost: F.COST.road, desc: '빈 터에 새 길을 내요. 칸을 누르거나 끌어서 이어 그리세요. 집·건물·밭 위로는 못 지나가요.' },
+    { id: 'wide', g: 0, nm: '차선 확장', cost: F.COST.wide, desc: '두 칸 이상 이어 깔면 2차로가 돼요. 빠른 차가 느린 차를 앞질러 갈 수 있어요.' },
+    { id: 'oneway', g: 0, nm: '일방통행', cost: F.COST.oneway, desc: '한쪽 방향으로만 다니게 해요. 누를 때마다 방향이 바뀌어요.' },
+    { id: 'demolish', g: 0, nm: '철거', cost: F.COST.demolish, desc: '내가 놓은 것은 전액 돌려받고, 원래 있던 도로는 $50K를 내고 걷어 내요.' },
+    { id: 'guide', g: 1, nm: '유도선', cost: F.COST.guide, desc: '길이 갈라지는 칸에 칠하면 초보 운전자가 망설이지 않아요. 곧은 길에서는 효과가 없어요.' },
+    { id: 'bus', g: 1, nm: '버스 전용', cost: F.COST.bus, desc: '1차로 도로에 이어 칠하면 버스만 다니는 길이 돼요. 버스 한 대에는 스무 명이 타고 있어요.' },
+    { id: 'rev', g: 1, nm: '가변 차선', cost: F.COST.rev, desc: '가운데 차로가 붐비는 쪽으로 알아서 열려요. 두 칸 이상 이어 깔아야 해요.' },
+    { id: 'round', g: 2, nm: '회전교차로', cost: F.COST.round, desc: '길이 셋 이상 만나는 곳에 놓으세요. 멈추지 않고 천천히 돌아 나가서 사고가 크게 줄어요.' },
+    { id: 'signal', g: 2, nm: '신호등', cost: F.COST.signal, desc: '길이 셋 이상 만나는 곳에서 차례를 정해 줘요. 눈치 싸움과 망설임이 사라져요.' },
+    { id: 'bridge', g: 2, nm: '다리', cost: F.COST.bridge, desc: '물은 다리로만 건널 수 있어요. 다른 도로 위로 넘어갈 때도 써요. 누를 때마다 방향이 바뀌어요.' },
+    { id: 'tunnel', g: 2, nm: '터널', cost: F.COST.tunnel, desc: '바위·공원·도로 밑으로 지나가요. 누를 때마다 방향이 바뀌어요.' },
+    { id: 'overpass', g: 2, nm: '육교', cost: F.COST.overpass, desc: '횡단보도에 놓으면 사람은 위로 건너고, 차는 멈추지 않고 지나가요.' },
+    { id: 'camera', g: 3, nm: '단속 카메라', cost: F.COST.camera, desc: '주변을 지나는 과속 차량만 얌전해져요. 다른 차는 그대로 달려요.' },
+    { id: 'bump', g: 3, nm: '방지턱', cost: F.COST.bump, desc: '값은 싸지만 그 위를 지나는 차가 전부 느려져요.' },
+    { id: 'barricade', g: 3, nm: '통행 차단', cost: F.COST.barricade, desc: '도로를 부수지 않고 막아 두기만 해요. 보호 구간에도 놓을 수 있어요.' }
   ];
   const TOOL = {}; TOOLS.forEach(t => TOOL[t.id] = t);
 
@@ -138,17 +138,17 @@
   function check(i, id) {
     const t = tiles[i];
     switch (id) {
-      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'house') return '사람 사는 집이에요. 길은 빈 터에 내 주세요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base === 'water') return '강 위에는 도로 대신 다리를 놓아야 해요'; if (t.base === 'park') return '공원은 밀 수 없어요. 밑으로 지하차도를 내 보세요'; if (t.base === 'field') return '한창 자라는 밭이에요. 옆으로 돌아가 주세요'; if (t.base === 'cont') return '컨테이너가 쌓여 있어요. 사이로 돌아가 주세요'; if (t.base === 'forest') return '숲은 밀 수 없어요. 돌아가 주세요'; if (t.base === 'rock') return '바위는 밀 수 없어요. 지하차도로 뚫어야 해요'; if (t.base === 'mill') return '풍차는 마을의 자랑이라 옮길 수 없어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 지하차도를 써 보세요'; return null;
-      case 'wide': if (!t.road) return '도로 위에만 설치할 수 있어요'; if (t.locked) return '잠긴 도로는 넓힐 수 없어요'; return null;
+      case 'road': if (t.term) return '건물 위에는 놓을 수 없어요'; if (t.road) return '이미 도로가 있어요'; if (t.base === 'bldg') return '건물이 있어서 길을 낼 수 없어요'; if (t.base === 'house') return '사람 사는 집이에요. 길은 빈 터에 내 주세요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; if (t.base === 'water') return '물 위에는 도로 대신 다리를 놓아야 해요'; if (t.base === 'park') return '공원은 밀 수 없어요. 밑으로 터널을 뚫어 보세요'; if (t.base === 'field') return '한창 자라는 밭이에요. 옆으로 돌아가 주세요'; if (t.base === 'cont') return '컨테이너가 쌓여 있어요. 사이로 돌아가 주세요'; if (t.base === 'forest') return '숲은 밀 수 없어요. 돌아가 주세요'; if (t.base === 'rock') return '바위는 밀 수 없어요. 터널로 뚫어야 해요'; if (t.base === 'mill') return '풍차는 마을의 자랑이라 옮길 수 없어요'; if (t.base !== 'grass') return '여기는 길을 낼 수 없어요. 다리나 터널을 써 보세요'; return null;
+      case 'wide': if (!t.road) return '도로 위에만 놓을 수 있어요'; if (t.locked) return '보호 구간은 넓힐 수 없어요'; return null;
       case 'rev': case 'oneway': case 'guide': case 'bus': case 'bump': case 'barricade': case 'camera': case 'round': case 'signal':
-        return t.road ? null : '도로 위에만 설치할 수 있어요';
+        return t.road ? null : '도로 위에만 놓을 수 있어요';
       case 'overpass': return t.crosswalk && t.road ? null : '횡단보도 위에만 놓을 수 있어요';
-      case 'bridge': if (t.term) return '건물 위에는 놓을 수 없어요'; if (!(t.base === 'water' || t.road)) return '다리는 강 위나 도로 위에만 놓을 수 있어요'; return null;
-      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '강 밑으로는 뚫을 수 없어요'; if (t.base === 'bldg' || t.base === 'house' || t.base === 'cont') return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; return null;
+      case 'bridge': if (t.term) return '건물 위에는 놓을 수 없어요'; if (!(t.base === 'water' || t.road)) return '다리는 물 위나 도로 위에만 놓을 수 있어요'; return null;
+      case 'tunnel': if (t.term) return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'water') return '물 밑으로는 뚫을 수 없어요'; if (t.base === 'bldg' || t.base === 'house' || t.base === 'cont') return '건물 밑으로는 뚫을 수 없어요'; if (t.base === 'site') return '공사 구역이라 손댈 수 없어요'; return null;
       case 'demolish': {
         const o = base[i];
         if (F.tileCost(t, o) > 0 && !(o.road && !t.road)) return null;
-        if (t.road && t.locked) return '잠긴 도로는 철거할 수 없어요 (차단은 가능)';
+        if (t.road && t.locked) return '보호 구간은 철거할 수 없어요. 통행 차단은 놓을 수 있어요';
         return t.road ? null : '철거할 것이 없어요';
       }
     }
@@ -306,7 +306,7 @@
     $('hist').innerHTML = history.length ? '<table><tr><th>설계</th><th>예산</th><th>통행 시간</th><th>변화</th><th>사고</th><th>결과</th></tr>' +
       history.map((h, k) => `<tr><td>#${k + 1}</td><td>${won(h.cost)}</td><td>${h.pc.toFixed(1)}초</td><td>${(h.pc - baseM.perCapita).toFixed(1)}</td><td>${h.acc}</td><td class="${h.clear ? 'ok' : 'ng'}">${h.clear ? '★'.repeat(Math.min(3, h.stars)) + (h.stars > 3 ? '<span style="color:#8b5cf6">★</span>' : '') : '실패'}</td></tr>`).reverse().join('') + '</table>'
       : '<span style="color:#6f7482">실행한 결과가 여기에 쌓입니다. 서로 다른 설계를 비교해 보세요.</span>';
-    const mx = baseSim.mix, items = [['normal', '일반'], ['speeder', '과속'], ['novice', '초보'], ['tractor', '경운기'], ['moto', '오토바이']].filter(i => mx[i[0]] > 0), tot = items.reduce((a, i) => a + mx[i[0]], 0) || 1;
+    const mx = baseSim.mix, items = [['normal', '일반'], ['speeder', '과속'], ['novice', '초보'], ['tractor', '트랙터'], ['moto', '오토바이']].filter(i => mx[i[0]] > 0), tot = items.reduce((a, i) => a + mx[i[0]], 0) || 1;
     $('mixBar').innerHTML = items.map(([k]) => `<div style="width:${mx[k] / tot * 100}%;background:${R.CAR[k]}"></div>`).join('');
     $('mixLegend').innerHTML = items.map(([k, n]) => `<span><i style="background:${R.CAR[k]}"></i>${n} ${(mx[k] / tot * 100).toFixed(0)}%</span>`).join('') + (mx.bus ? `<span><i style="background:${R.CAR.bus}"></i>버스 ${mx.bus}대</span>` : '');
     $('conf').innerHTML = `<b>${baseConf}</b> → <b style="color:${conflicts.sum < baseConf ? '#0f7a55' : conflicts.sum > baseConf ? '#e5483f' : 'inherit'}">${conflicts.sum}</b><small>차들이 서로 엇갈리는 지점 수 (낮을수록 안전)</small>`;

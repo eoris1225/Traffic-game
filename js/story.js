@@ -148,7 +148,7 @@
     $('btnMail').innerHTML = ST.mailTitle + ' <b>' + mailCount() + '/' + STAGES.length + '</b>';
     $('selStars').innerHTML = P.chip('star') + '<b>' + starSum() + '</b> / ' + starMax;
     document.querySelectorAll('#stageList .wSec h3').forEach((h, wi) => { if (!h.querySelector('small') && ST.worlds[wi]) h.insertAdjacentHTML('beforeend', '<small>' + ST.worlds[wi] + '</small>'); });
-    const t = $('tProg'); if (t) { t.innerHTML = cleared() ? P.chip('star') + starSum() + ' / ' + starMax + ' · ' + cleared() + '구역 완료' : ''; t.style.display = cleared() ? '' : 'none'; }
+    const t = $('tProg'); if (t) { t.innerHTML = cleared() ? P.chip('star') + starSum() + ' / ' + starMax + ' · ' + '현장 ' + cleared() + '곳 해결' : ''; t.style.display = cleared() ? '' : 'none'; }
   }
   new MutationObserver(refresh).observe($('stageList'), { childList: true });
 
