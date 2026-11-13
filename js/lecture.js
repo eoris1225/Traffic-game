@@ -6,7 +6,8 @@
   const L = window.FlowLab, F = window.FlowSim, R = window.FlowRender; if (!L) return;
   const $ = id => document.getElementById(id), SC = window.PIP_SCRIPT;
   const imgs = window.FlowPenguin ? window.FlowPenguin.make() : null;
-  const face = (img, pose) => { if (imgs) img.src = imgs[pose] || imgs.talk; img.style.display = imgs ? '' : 'none'; };
+  const face = (img, pose) => { const src = imgs && (imgs[pose] || imgs.talk); if (src) img.src = src; img.style.display = src ? '' : 'none'; };
+  if (window.FlowPenguin) window.addEventListener('load', () => window.FlowPenguin.warm());
 
   /* 대사 속 {이름} 은 실제 버튼 그림으로 바뀐다 */
   const chip = k => {

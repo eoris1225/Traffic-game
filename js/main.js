@@ -331,17 +331,35 @@
   }
   /* 설치: 첫 칸은 토글, 끌면 같은 값으로 이어 칠한다 */
   let stroke = null;
+  /* 칸에 무언가를 놓으면 그 칸에서 테두리가 퍼지고 먼지가 조금 인다(철거는 붉게) */
+  const puffs = [];
+  function puff(i, del) { puffs.push({ x: i % W, y: (i / W) | 0, t: performance.now(), del, seed: Math.random() * 6 }); if (puffs.length > 24) puffs.shift(); }
+  function drawPuffs(now) {
+    if (!V3) return;
+    for (let k = puffs.length - 1; k >= 0; k--) {
+      const f = puffs[k], u = (now - f.t) / 520; if (u >= 1) { puffs.splice(k, 1); continue; }
+      const e = 1 - Math.pow(1 - u, 3), g = .06 + e * .16, c = [[f.x - g, f.y - g], [f.x + 1 + g, f.y - g], [f.x + 1 + g, f.y + 1 + g], [f.x - g, f.y + 1 + g]].map(q => V3.project(q[0], q[1], .02));
+      ctx.save(); ctx.globalAlpha = 1 - u; ctx.lineWidth = 3.2 * (1 - u) + .8; ctx.strokeStyle = f.del ? '#e5483f' : '#fff6d6';
+      ctx.beginPath(); c.forEach((q, j) => (j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); ctx.stroke();
+      ctx.fillStyle = f.del ? 'rgba(120,90,70,.75)' : 'rgba(214,200,170,.8)';
+      for (let j = 0; j < 7; j++) {
+        const a = f.seed + j * .9, r = .25 + e * .5, q = V3.project(f.x + .5 + Math.cos(a) * r, f.y + .5 + Math.sin(a) * r, .05 + Math.sin(u * Math.PI) * .18);
+        ctx.beginPath(); ctx.arc(q[0], q[1], 3.2 * (1 - u) + 1, 0, 7); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
   function place(p) {
     if (!stroke) {
       pushUndo();
       const r = apply(p.i, tool);
       if (r.err) { undo.pop(); toast(r.err); stroke = { dead: true, last: p.i }; return; }
-      stroke = { last: p.i, val: r.val }; afterEdit(); return;
+      stroke = { last: p.i, val: r.val }; afterEdit(); puff(p.i, tool === 'demolish'); return;
     }
     if (stroke.dead || p.i === stroke.last) return;
     stroke.last = p.i;
     const cur = tool === 'oneway' ? tiles[p.i].oneway : tiles[p.i][tool], plain = tool === 'road' || tool === 'demolish';
-    if (plain || cur !== stroke.val) { const r = apply(p.i, tool, plain ? undefined : stroke.val); if (r.err) { if (/예산/.test(r.err)) toast(r.err); } else afterEdit(); }
+    if (plain || cur !== stroke.val) { const r = apply(p.i, tool, plain ? undefined : stroke.val); if (r.err) { if (/예산/.test(r.err)) toast(r.err); } else { afterEdit(); puff(p.i, tool === 'demolish'); } }
   }
   function pickCar(p) {
     let bestC = null, bd = 1;
@@ -574,7 +592,7 @@
     }
     if (tracked && (tracked.gone || tracked.crashed)) tracked = null;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, vw, vh);
-    if (V3) { V3.update(sim, now); R.overlay3d(ctx, { sim, tracked, now }, V3); drawHints(); }
+    if (V3) { V3.update(sim, now); R.overlay3d(ctx, { sim, tracked, now }, V3); drawHints(); drawPuffs(now); }
     else {                                                  // WebGL 없음: 2D 지도로 대체
       ctx.save(); ctx.translate(ox, oy);
       R.draw(ctx, { TS, tiles: sim ? sim.tiles : tiles, graph: sim || graph, sim, mode, hover, now, tracked, theme: mode === 'edit' ? 'blueprint' : 'poly', showHeat: true });

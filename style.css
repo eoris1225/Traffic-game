@@ -45,7 +45,7 @@ header{display:flex;align-items:center;gap:26px;padding:0 4px}
 
 #stageWrap{position:relative;flex:1;min-height:0;border-radius:12px;overflow:hidden;background:#cfe3e4;user-select:none;-webkit-user-select:none}
 #stageWrap.is-edit{background:#8d9099}
-#map3d{position:absolute;left:0;top:0;z-index:0}
+#map3d{position:absolute;left:0;top:0;z-index:0;filter:contrast(1)}/* 효과 없는 필터: Chromium 이 불투명한 카드·막대 아래 3D 캔버스를 엉뚱한(상하 뒤집힌) 자리까지 가려졌다고 보고 건너뛰는 것을 막는다 */
 #map{position:absolute;left:0;top:0;z-index:1;cursor:crosshair;touch-action:none}
 #stageWrap.is-play #map{cursor:grab}
 
@@ -669,4 +669,30 @@ button.env:hover{transform:translateY(-3px) rotate(-.6deg)}
 @media (max-width:760px) and (min-height:521px){
   #askPip{width:96px;right:-4px;top:auto;bottom:-14px}
   #askBubble{padding-right:86px}
+}
+
+/* ---------- 마감 손질 ---------- */
+/* 안내 카드의 도구 아이콘: 많으면 다음 줄로 */
+#briefTools{flex-wrap:wrap}
+/* 카드·장면이 떠 있는 동안 옆의 ? 버튼은 숨긴다 */
+#stageWrap:has(#brief:not(.hidden)) #guideBtn,#stageWrap:has(#result:not(.hidden)) #guideBtn,#stageWrap:has(#scene:not(.hidden)) #guideBtn,#stageWrap:has(#ending:not(.hidden)) #guideBtn{opacity:0;pointer-events:none}
+#guideBtn{transition:opacity .2s}
+/* 로드맵: 긴 이름은 한 줄로, 넘치면 말줄임 */
+.node b{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 카드가 뜰 때 살짝 튀어 오른다 */
+#brief:not(.hidden) .card,#result:not(.hidden) .card{animation:cardIn .32s cubic-bezier(.3,1.35,.5,1)}
+@keyframes cardIn{from{transform:translateY(18px) scale(.96);opacity:0}}
+
+/* 결과 별: 효과음에 맞춰 하나씩 튀어나온다 */
+#resStars svg.on{animation:starPop .45s cubic-bezier(.3,1.9,.5,1) backwards}
+#resStars svg.on:nth-child(1){animation-delay:.25s}#resStars svg.on:nth-child(2){animation-delay:.51s}
+#resStars svg.on:nth-child(3){animation-delay:.77s}#resStars svg.on:nth-child(4){animation-delay:1.03s}
+@keyframes starPop{0%{transform:scale(.2) rotate(-30deg);color:#dcd6c5;filter:none}60%{transform:scale(1.3) rotate(8deg)}100%{transform:none}}
+/* 장면: 앵거스는 오른쪽에 서고 말풍선은 왼쪽. 폰에서는 말풍선이 캐릭터 옆 남은 폭을 다 쓴다 */
+#scene.who-angus #sceneBubble{left:auto}
+@media (max-width:760px){
+  #sceneImg{width:128px}
+  #sceneBubble{left:114px;right:10px;width:auto}
+  #scene.who-angus #sceneBubble{left:10px;right:114px}
+  #scene.who-note #sceneBubble{left:50%;right:auto;width:min(400px,calc(100% - 40px))}
 }

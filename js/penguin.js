@@ -102,29 +102,51 @@
     return out.toDataURL('image/png');
   }
 
-  function make() {
-    const THREE = root.THREE; if (!THREE) return null;
-    let renderer;
-    try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); } catch (e) { return null; }
-    renderer.setPixelRatio(1); renderer.setSize(SIZE, SIZE, false); renderer.setClearColor(0x000000, 0);
-    const scene = new THREE.Scene();
-    scene.add(new THREE.HemisphereLight(0xfffaf0, 0xb9b2a2, .62));
-    const sun = new THREE.DirectionalLight(0xfff1d6, .6); sun.position.set(-2.5, 4, 5); scene.add(sun);
-    const camera = new THREE.PerspectiveCamera(24, 1, .1, 50); camera.position.set(.4, 1.9, 6.6); camera.lookAt(0, 1.08, 0);
-    const res = {}, copy = document.createElement('canvas'); copy.width = SIZE; copy.height = SIZE; const cx = copy.getContext('2d');
+  /* 스티커는 필요할 때 한 장씩 그리고(첫 화면을 막지 않도록), 나머지는 한가할 때 뒤에서 미리 그려 둔다.
+     make() 는 예전처럼 { 포즈이름: 그림 } 꼴을 돌려주지만, 각 그림은 처음 읽힐 때 만들어진다. */
+  const cache = {}; let R = null, dead = false;
+  function setup() {
+    if (R || dead) return R;
+    const THREE = root.THREE; if (!THREE) { dead = true; return null; }
     try {
-      for (const name in POSES) {
-        const g = build(THREE, POSES[name]); scene.add(g);
-        camera.fov = POSES[name].stick ? 33 : 24; camera.updateProjectionMatrix();          // 발표봉을 든 자세는 봉 끝까지 담기도록 넓게 찍는다
-        renderer.render(scene, camera);
-        cx.clearRect(0, 0, SIZE, SIZE); cx.drawImage(renderer.domElement, 0, 0);
-        res[name] = sticker(copy);
-        scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
-      }
-    } catch (e) { return null; }
-    finally { renderer.dispose(); if (renderer.forceContextLoss) renderer.forceContextLoss(); }
-    return res;
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1); renderer.setSize(SIZE, SIZE, false); renderer.setClearColor(0x000000, 0);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.HemisphereLight(0xfffaf0, 0xb9b2a2, .62));
+      const sun = new THREE.DirectionalLight(0xfff1d6, .6); sun.position.set(-2.5, 4, 5); scene.add(sun);
+      const camera = new THREE.PerspectiveCamera(24, 1, .1, 50); camera.position.set(.4, 1.9, 6.6); camera.lookAt(0, 1.08, 0);
+      const copy = document.createElement('canvas'); copy.width = SIZE; copy.height = SIZE;
+      R = { THREE, renderer, scene, camera, copy, cx: copy.getContext('2d') };
+    } catch (e) { dead = true; }
+    return R;
+  }
+  function done() {
+    if (R && Object.keys(POSES).every(n => n in cache)) { R.renderer.dispose(); if (R.renderer.forceContextLoss) R.renderer.forceContextLoss(); R = null; }
+  }
+  function get(name) {
+    if (name in cache) return cache[name];
+    if (!POSES[name] || !setup()) return (cache[name] = null);
+    const { THREE, renderer, scene, camera, copy, cx } = R;
+    try {
+      const g = build(THREE, POSES[name]); scene.add(g);
+      camera.fov = POSES[name].stick ? 33 : 24; camera.updateProjectionMatrix();          // 발표봉을 든 자세는 봉 끝까지 담기도록 넓게 찍는다
+      renderer.render(scene, camera);
+      cx.clearRect(0, 0, SIZE, SIZE); cx.drawImage(renderer.domElement, 0, 0);
+      cache[name] = sticker(copy);
+      scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    } catch (e) { cache[name] = null; }
+    done();
+    return cache[name];
+  }
+  const imgs = {};
+  Object.keys(POSES).forEach(n => Object.defineProperty(imgs, n, { get: () => get(n), enumerable: true }));
+  function make() { return imgs; }
+  /* 한가할 때 한 장씩 */
+  function warm(delay) {
+    const todo = Object.keys(POSES).filter(n => !(n in cache));
+    const step = () => { const n = todo.shift(); if (n) get(n); if (todo.length) (root.requestIdleCallback ? root.requestIdleCallback(step, { timeout: 600 }) : setTimeout(step, 40)); };
+    if (todo.length) setTimeout(step, delay === undefined ? 700 : delay);
   }
 
-  root.FlowPenguin = { make, POSES };
+  root.FlowPenguin = { make, get, warm, imgs, POSES };
 })(window);
