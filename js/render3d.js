@@ -1028,6 +1028,14 @@
       setHover(h) { hover = h; },
       orbit(dx, dy) { if (cam.mode !== 'iso') return; cam.touched = true; tgt.yaw -= dx * 0.006; tgt.pitch = Math.max(0.35, Math.min(1.45, tgt.pitch + dy * 0.005)); },
       /* 확대·축소. (px, py) 를 주면 그 지점을 중심으로 당긴다 */
+      /* 끌어서 옮기기: 손가락(또는 마우스) 아래의 땅이 그대로 따라오게 시점 중심을 민다 */
+      pan(x0, y0, x1, y1) {
+        const a = this.pick(x0, y0), b = this.pick(x1, y1); if (!a || !b) return;
+        cam.touched = true;
+        const dx = a[0] - b[0], dz = a[1] - b[1], cl = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+        tgt.tx = cl(tgt.tx + dx, -3, W + 3); tgt.tz = cl(tgt.tz + dz, -3, H + 4);
+        cam.tx = cl(cam.tx + dx, -3, W + 3); cam.tz = cl(cam.tz + dz, -3, H + 4);       // 손을 따라 바로 움직이게(부드럽게 쫓아가지 않음)
+      },
       zoom(f, px, py) {
         cam.touched = true;
         const nd = Math.max(5, Math.min(48, tgt.dist * f)), k = nd / tgt.dist; tgt.dist = nd;

@@ -373,12 +373,14 @@
   }
   const pts = new Map();
   let gest = null;       // { kind:'edit'|'orbit'|'pinch', ... }
+  const mid = () => { const a = [...pts.values()], r = cv.getBoundingClientRect(); return [(a[0].x + a[1].x) / 2 - r.left, (a[0].y + a[1].y) / 2 - r.top]; };
   const pinchDist = () => { const a = [...pts.values()]; return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); };
   cv.addEventListener('pointerdown', e => {
     hideInfo();
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2) { gest = { kind: 'pinch', d: pinchDist() }; stroke = null; return; }      // 두 손가락: 확대·축소
+    if (pts.size === 2) { gest = { kind: 'pinch', d: pinchDist(), m: mid() }; stroke = null; setHover(null); return; }      // 두 손가락: 벌리고 오므려 확대·축소, 같이 끌어 화면 이동
+    if (e.pointerType === 'mouse' && (e.button === 1 || e.button === 2)) { gest = { kind: 'pan', x: e.clientX, y: e.clientY }; return; }      // 마우스 오른쪽·가운데 버튼으로 끌어 화면 이동
     const p = tileAt(e);
     if (mode === 'edit') {
       gest = { kind: 'edit', touch: e.pointerType !== 'mouse', first: p };
@@ -388,7 +390,8 @@
   });
   cv.addEventListener('pointermove', e => {
     if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (gest && gest.kind === 'pinch') { if (pts.size === 2 && V3) { const d = pinchDist(); if (d > 0) { const a = [...pts.values()], r = cv.getBoundingClientRect(); V3.zoom(gest.d / d, (a[0].x + a[1].x) / 2 - r.left, (a[0].y + a[1].y) / 2 - r.top); gest.d = d; } } return; }
+    if (gest && gest.kind === 'pinch') { if (pts.size === 2 && V3) { const d = pinchDist(); if (d > 0) { const a = [...pts.values()], r = cv.getBoundingClientRect(); V3.zoom(gest.d / d, (a[0].x + a[1].x) / 2 - r.left, (a[0].y + a[1].y) / 2 - r.top); gest.d = d; const m = mid(); V3.pan(gest.m[0], gest.m[1], m[0], m[1]); gest.m = m; } } return; }
+    if (gest && gest.kind === 'pan') { if (V3) { const r = cv.getBoundingClientRect(); V3.pan(gest.x - r.left, gest.y - r.top, e.clientX - r.left, e.clientY - r.top); } gest.x = e.clientX; gest.y = e.clientY; return; }
     if (gest && gest.kind === 'orbit') {
       if (Math.abs(e.clientX - gest.x0) + Math.abs(e.clientY - gest.y0) > 6) gest.moved = true;
       if (gest.moved && V3) V3.orbit(e.clientX - gest.x, e.clientY - gest.y);
@@ -409,6 +412,7 @@
     pts.delete(e.pointerId);
     if (!gest) return;
     if (gest.kind === 'pinch') { if (pts.size === 0) gest = null; return; }
+    if (gest.kind === 'pan') { gest = null; return; }
     if (gest.kind === 'edit' && gest.touch && !stroke && e.type === 'pointerup' && gest.first && !gest.first.out) place(gest.first);
     if (gest.kind === 'edit' && gest.touch) setHover(null);
     if (gest.kind === 'orbit' && !gest.moved && sim && gest.p && e.type === 'pointerup') pickCar(gest.p);
