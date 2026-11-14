@@ -22,7 +22,7 @@
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0xcfe3e4, 30, 74);
     const camera = new THREE.PerspectiveCamera(30, 1.5, 0.5, 200);
-    scene.add(new THREE.HemisphereLight(0xfffaf0, 0xb9b2a2, 0.58));
+    const hemi = new THREE.HemisphereLight(0xfffaf0, 0xb9b2a2, 0.58); scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xfff1d6, 0.62);
     sun.position.set(W / 2 - 7, 14, H / 2 + 7.5); sun.target.position.set(W / 2, 0, H / 2);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
@@ -36,9 +36,11 @@
     let TOON = true; try { TOON = localStorage.getItem('flowlab.toon') !== '0'; } catch (e) { /* ignore */ }
     let ramp = null;
     if (TOON) {
-      ramp = new THREE.DataTexture(new Uint8Array([0, 0, 150, 255]), 4, 1, THREE.RedFormat);
+      ramp = new THREE.DataTexture(new Uint8Array([0, 0, 170, 255]), 4, 1, THREE.RedFormat);
       ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.generateMipmaps = false; ramp.needsUpdate = true;
-      sun.intensity = 0.55;
+      sun.intensity = 0.5; sun.shadow.radius = 1; renderer.shadowMap.type = THREE.PCFShadowMap;
+      /* 그늘은 방향과 상관없이 한 가지 색: 하늘빛(위아래로 번지는 빛) 대신 살짝 푸른 고른 빛을 쓴다 */
+      scene.remove(hemi); scene.add(new THREE.AmbientLight(0xe6e3f2, 0.62));
     }
     const M = (color, opt) => {
       if (!TOON) return new THREE.MeshLambertMaterial(Object.assign({ color, flatShading: true }, opt || {}));
@@ -361,7 +363,8 @@
     }
     /* 사람 / 강아지: +x 를 보고 선다 */
     function person(seed, parent) {
-      const g = new THREE.Group(), coat = COAT[Math.floor(hash(seed * 1.3) * COAT.length)], legM = hash(seed * 2.9) < .5 ? mats.dark : mats.pole;
+      const g = new THREE.Group(); g.userData.noLine = true;   // 사람은 너무 작아서 윤곽선을 두르면 뭉개진다
+      const coat = COAT[Math.floor(hash(seed * 1.3) * COAT.length)], legM = hash(seed * 2.9) < .5 ? mats.dark : mats.pole;
       const legs = [];
       for (const s of [-1, 1]) { const hip = new THREE.Group(); hip.position.set(0, .05, s * .011); g.add(hip); mesh(G.box, legM, 0, -.025, 0, .016, .05, .016, hip); legs.push(hip); }
       mesh(G.box, coat, 0, .078, 0, .028, .056, .044, g);
@@ -1036,19 +1039,21 @@
       let rt = null; const hidden = [], size = new THREE.Vector2();
       const depthMat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
-        transparent: true, depthTest: false, depthWrite: false,
-        uniforms: { tDepth: { value: null }, px: { value: new THREE.Vector2() }, nf: { value: new THREE.Vector2(camera.near, camera.far) }, vh: { value: 1 }, fog: { value: new THREE.Vector2(30, 74) }, ink: { value: new THREE.Color(0x262a36) }, str: { value: .8 } },
+        transparent: true, depthTest: false, depthWrite: false, blending: THREE.MultiplyBlending,
+        uniforms: { tDepth: { value: null }, px: { value: new THREE.Vector2() }, nf: { value: new THREE.Vector2(camera.near, camera.far) }, vh: { value: 1 }, fog: { value: new THREE.Vector2(30, 74) }, ink: { value: new THREE.Color(0.2, 0.18, 0.3) }, str: { value: 1 } },
         vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
         fragmentShader: `
           uniform sampler2D tDepth; uniform vec2 px, nf, fog; uniform float vh, str; uniform vec3 ink; varying vec2 vUv;
           float W(vec2 o){ float d = texture2D(tDepth, vUv + o * px).x; return ((nf.y + nf.x) - (2. * d - 1.) * (nf.y - nf.x)) / (2. * nf.x * nf.y); }   // 1/z
           void main(){
             float c = W(vec2(0.)), l = W(vec2(-1., 0.)), r = W(vec2(1., 0.)), u = W(vec2(0., 1.)), d = W(vec2(0., -1.));
-            float near = max(max(max(l, r), max(u, d)), c), z = 1. / near;
-            float e = (abs(l + r - 2. * c) + abs(u + d - 2. * c)) * z * vh;
-            float a = smoothstep(.75, 1.9, e) * (1. - smoothstep(fog.x * .8, fog.y * .8, z)) * str;
-            if (a < .01) discard;
-            gl_FragColor = vec4(ink, a);
+            float lu = W(vec2(-.7, .7)), rd = W(vec2(.7, -.7)), ru = W(vec2(.7, .7)), ld = W(vec2(-.7, -.7));
+            float z = 1. / max(max(max(l, r), max(u, d)), c);
+            float e = max(max(abs(l + r - 2. * c), abs(u + d - 2. * c)), max(abs(lu + rd - 2. * c), abs(ru + ld - 2. * c))) * z * vh;
+            /* 낮은 턱이나 완만한 모서리는 넘기고, 건물·나무·차처럼 앞뒤가 뚜렷이 끊기는 윤곽에만 굵게 긋는다 */
+            float a = smoothstep(2.2, 3.4, e) * (1. - smoothstep(fog.x * .9, fog.y * .85, z)) * str;
+            if (a < .02) discard;
+            gl_FragColor = vec4(mix(vec3(1.), ink, a), 1.);
           }` }));
       quad.frustumCulled = false;
       const ps = new THREE.Scene(), pc = new THREE.Camera(); ps.add(quad);
@@ -1057,18 +1062,18 @@
           renderer.getDrawingBufferSize(size); if (rt) { rt.depthTexture.dispose(); rt.dispose(); }
           rt = new THREE.WebGLRenderTarget(size.x, size.y, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false });
           rt.depthTexture = new THREE.DepthTexture(size.x, size.y); rt.depthTexture.type = THREE.UnsignedIntType;
-          const u = quad.material.uniforms, t = Math.max(1, size.y / 900);          // 선 굵기: 화면 높이 900px 마다 1px
+          const u = quad.material.uniforms, t = Math.max(1, size.y / 620);          // 선 굵기: 화면 높이에 비례
           u.tDepth.value = rt.depthTexture; u.px.value.set(t / size.x, t / size.y); u.vh.value = size.y / t;
         },
         draw() {
           if (!rt) return;
           hidden.length = 0;
-          scene.traverseVisible(o => { if (o.material && (o.material.transparent || o.material.isMeshBasicMaterial)) { o.visible = false; hidden.push(o); } });
+          scene.traverseVisible(o => { if (o.userData.noLine || (o.material && (o.material.transparent || o.material.isMeshBasicMaterial))) { o.visible = false; hidden.push(o); } });
           const au = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false; scene.overrideMaterial = depthMat;
           renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null);
           scene.overrideMaterial = null; renderer.shadowMap.autoUpdate = au; for (const o of hidden) o.visible = true;
           quad.material.uniforms.nf.value.set(camera.near, camera.far);
-          quad.material.uniforms.str.value = .5 + .3 * amt;                       // 흑백 편집 화면에서는 선을 조금 옅게
+          quad.material.uniforms.str.value = .7 + .3 * amt;                       // 흑백 편집 화면에서는 선을 조금 옅게
           const ac = renderer.autoClear; renderer.autoClear = false; renderer.render(ps, pc);
           camera.layers.set(1); renderer.render(scene, camera); camera.layers.set(0);   // 간판·말풍선은 선 위에
           renderer.autoClear = ac;
