@@ -670,7 +670,7 @@
         if (onLane(cx, cz)) continue;
         const k = cx * 31.7 + cz * 17.3, r = hash(k), r2 = hash(k + 3), n = vnoise(cx / 2.4 + 9, cz / 2.4 + 4);
         if (alpine) {                                             // 산: 밭 대신 숲과 바위
-          if (n < .5) forestTile(eb, cx, cz, k); else if (r < .14) { eb.add(G.cone5, mats.rock, cx + .5, .25, cz + .5, .34, .5, .34, r * 9); eb.add(G.cone5, mats.snow, cx + .5, .42, cz + .5, .12, .17, .12, r * 9); } else if (r < .2) houseTile(eb, POUT, cx, cz, k); else if (r < .3) tree(eb, cx + .5, cz + .5, 1, 1);
+          if (n < .5) forestTile(eb, cx, cz, k); else if (r < .14) { eb.add(G.cone5, mats.rock, cx + .5, .25, cz + .5, .34, .5, .34, r * 9); eb.add(G.cone5, mats.snow, cx + .5, .428, cz + .5, .15, .17, .15, r * 9); } else if (r < .2) houseTile(eb, POUT, cx, cz, k); else if (r < .3) tree(eb, cx + .5, cz + .5, 1, 1);
           continue;
         }
         if (n < .46) { quad(soil, cx + .04, cz + .04, cx + .96, cz + .96, .001); cropRows(eb, cx, cz, Math.floor(n * 9) + Math.floor(cx / 3) * 7 + Math.floor(cz / 3) * 13, .9, .9); }
@@ -686,7 +686,7 @@
       if (alpine) for (let k = 0; k < 14; k++) {                 // 가까운 봉우리
         const a = -2.6 + k * .42, d = 15 + hash(k * 3.1) * 7, r = 3.5 + hash(k * 5.3) * 3, hh = 5 + hash(k * 7.7) * 5, px = W / 2 + Math.cos(a) * d * 1.3, pz = H / 2 + Math.sin(a) * d - 4;
         if (pz > H + 3) continue;
-        eb.add(G.cone5, k % 2 ? mats.rock : mats.rock2, px, hh / 2 - .2, pz, r, hh, r, k, 0, 0, false); eb.add(G.cone5, mats.snow, px, hh * .8 - .2, pz, r * .42, hh * .42, r * .42, k, 0, 0, false);
+        eb.add(G.cone5, k % 2 ? mats.rock : mats.rock2, px, hh / 2 - .2, pz, r, hh, r, k, 0, 0, false); eb.add(G.cone5, mats.snow, px, hh * .8 - .18, pz, r * .47, hh * .42, r * .47, k, 0, 0, false);
       }
       flat(soil, mats.fieldBg); flat(dirt, mats.dirt);
       for (let k = 0; k < 18; k++) { const r = 7 + hash(k * 2.3) * 7, hh = 2.2 + hash(k * 4.1) * 3.4; eb.add(G.ico1, [mats.hill, mats.hill2, mats.hill3][k % 3], -30 + k * 4.2 + hash(k) * 2, -.3, -24 - hash(k * 7.7) * 10, r, hh, r * .8, k, 0, 0, false); }
@@ -947,7 +947,7 @@
         if (t.base === 'rock') {
           [[.34, .4, .34, .62], [.68, .56, .27, .46], [.3, .76, .2, .3]].forEach((p, k) => {
             const m = mesh(G.cone5, k ? mats.rock2 : mats.rock, x + p[0], p[3] / 2, z + p[1], p[2], p[3], p[2]); m.rotation.y = hash(i + k) * 3;
-            if (k < 2) { const s = mesh(G.cone5, mats.snow, x + p[0], p[3] * .82, z + p[1], p[2] * .36, p[3] * .36, p[2] * .36); s.rotation.y = m.rotation.y; }
+            if (k < 2) { const s = mesh(G.cone5, mats.snow, x + p[0], p[3] * .815 + .006, z + p[1], p[2] * .41, p[3] * .37, p[2] * .41); s.rotation.y = m.rotation.y; }   // 눈은 바위보다 살짝 크게 씌운다: 같은 면에 겹치면 깜빡인다
           });
         } else if (t.base === 'bldg') {
           bldgTile(wb, PIN, x, z, i + 1, .5 + (1 - z / (H - 1)) * .45);
@@ -1219,6 +1219,9 @@
       const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
       const pd = cam.dist * FOVK; camera.position.set(cam.tx + Math.sin(yaw) * cp * pd, sp * pd, cam.tz + Math.cos(yaw) * cp * pd);
       if (FOVK > 1) { scene.fog.near = pd + 14; scene.fog.far = pd + 62; }
+      /* 깊이 범위를 장면이 있는 구간에만 맞춘다. 멀리서 좁은 화각으로 보면 깊이 정밀도가 떨어져 겹친 면이 깜빡이는데,
+         가까운 쪽 한계를 장면 바로 앞까지 당기면 정밀도가 수십 배 좋아진다 */
+      { const n = Math.max(.5, pd - 48), f = pd + 110; if (Math.abs(camera.near - n) > .01 || Math.abs(camera.far - f) > .01) { camera.near = n; camera.far = f; camera.updateProjectionMatrix(); } }
       camera.lookAt(cam.tx, 0, cam.tz);
       camera.updateMatrixWorld(); camera.updateProjectionMatrix();
     }
