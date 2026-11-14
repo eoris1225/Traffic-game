@@ -98,9 +98,9 @@
         vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.);
         gl_Position = projectionMatrix * mvPosition;
         { mat3 hm = mat3(modelViewMatrix); hm[0] = normalize(hm[0]); hm[1] = normalize(hm[1]); hm[2] = normalize(hm[2]);
-          vec2 hd = (projectionMatrix * vec4(hm * onormal, 0.)).xy * hullU.xy; float hl = length(hd);
-          float hw = hullU.z * clamp(hullK / gl_Position.w, .5, 2.2);                 // 가까이 볼수록 굵게, 멀면 가늘게
-          if (hl > 1e-5) gl_Position.xy += hd / hl / hullU.xy * 2. * hw * gl_Position.w; }`);
+          vec2 hd = (hm * onormal).xy;                                                 // 화면에 누운 만큼만 민다: 카메라를 보는 꼭짓점은 거의 안 움직여서 선이 물체에서 뜨지 않는다
+          float hw = hullU.z * clamp(hullK / gl_Position.w, .5, 1.6);                 // 가까이 볼수록 조금 굵게, 멀면 가늘게
+          gl_Position.xy += hd * hw * 2. / hullU.xy * gl_Position.w; }`);
     };
     const inkOf = (c, out) => {                                                    // 부품 색 → 선 색: 더 짙고 더 진하게, 살짝 푸른 쪽으로
       c.getHSL(hsl); const gray = hsl.s < .06, h = gray ? .7 : hsl.h + (((.68 - hsl.h + 1.5) % 1) - .5) * .1;
@@ -1252,7 +1252,7 @@
         amb = []; envWalkers = []; boats = []; envMills = []; critters = [];
       },
       get colorAmt() { return amt; }, get toon() { return TOON; },
-      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (TOON) { renderer.getDrawingBufferSize(bufSize); paintU.value = Math.max(1, bufSize.y / 760); hullU.value.set(bufSize.x, bufSize.y, Math.max(1.15, bufSize.y / 560)); } if (!cam.touched) { const v = viewOf(cam.mode); tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = v.tx; tgt.tz = v.tz; tgt.dist = fitDist(cam.mode); } },
+      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (TOON) { renderer.getDrawingBufferSize(bufSize); paintU.value = Math.max(1, bufSize.y / 760); hullU.value.set(bufSize.x, bufSize.y, Math.max(1, bufSize.y / 720)); } if (!cam.touched) { const v = viewOf(cam.mode); tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = v.tx; tgt.tz = v.tz; tgt.dist = fitDist(cam.mode); } },
       project(x, y, h) { v3.set(x, h || 0, y).project(camera); return [(v3.x + 1) / 2 * vw, (1 - v3.y) / 2 * vh]; },
       /* 화면 좌표 → 지면 좌표(타일 단위) */
       pick(px, py) { ndc.set(px / vw * 2 - 1, 1 - py / vh * 2); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, v3) ? [v3.x, v3.z] : null; },
