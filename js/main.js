@@ -613,6 +613,10 @@
   if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('900 20px "Wanted Sans"'), document.fonts.load('500 13px "Wanted Sans"'), document.fonts.load('400 20px "Do Hyeon"', '가'), document.fonts.load('800 20px "Barlow Condensed"')]).then(() => { rebuild3d(); resize(); }).catch(() => {});
   requestAnimationFrame(frame);
 
+  /* 그림체: 툰 셰이딩 켜기 / 끄기 (재질을 새로 만들어야 해서 화면을 다시 불러온다) */
+  { const b = $('helpToon'), on = !V3 || V3.toon !== false;
+    if (b) { b.textContent = on ? '만화풍 그림체 끄기' : '만화풍 그림체 켜기'; b.style.display = V3 ? '' : 'none';
+      b.onclick = () => { try { localStorage.setItem('flowlab.toon', on ? '0' : '1'); } catch (e) { /* ignore */ } location.reload(); }; } }
   window.FlowLab = { V3, UI, IC, get sim() { return sim; }, get tiles() { return tiles; }, get mode() { return mode; }, startRun, startEdit, startBefore, get baseM() { return baseM; }, grade, loadStage, openStages, connected, showBrief, get progress() { return progress; }, get stage() { return ST; }, get stageIdx() { return stageIdx; },
     apply: (x, y, id) => { const r = apply(y * W + x, id); afterEdit(); return r; } };
 })();

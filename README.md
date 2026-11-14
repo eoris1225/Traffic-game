@@ -139,3 +139,7 @@ js/script.js    핍의 대본(대사)    js/lecture.js   핍의 설명회(예시
 js/stages.js    지역·미니 스테이지 정의    js/moose.js     무스 청년 앵거스
 vendor/         three.js r149 (MIT), 글꼴 Wanted Sans · Do Hyeon · Barlow Condensed (모두 SIL OFL 1.1)
 ```
+
+## 그림체
+
+3D 화면은 기본으로 만화풍(툰 셰이딩)입니다. 해가 비추는 정도를 그늘·중간·밝음 세 단으로 끊어 칠하고(램프 셀 셰이딩), 깊이 버퍼에서 면이 꺾이거나 끊기는 자리를 찾아 외곽선을 긋습니다. 게임 방법 창의 「만화풍 그림체 끄기」로 예전 그림체로 돌아갈 수 있습니다.
