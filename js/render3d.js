@@ -31,16 +31,17 @@
     scene.add(sun); scene.add(sun.target);
 
     /* 툰 셰이딩(기본 켜짐, 게임 방법 창에서 끌 수 있다)
-       - 램프 셀 셰이딩: 해가 비추는 정도를 그늘·중간·밝음 세 단으로 끊어 칠한다.
-       - 외곽선: 깊이 버퍼에서 면이 꺾이거나 끊기는 자리를 찾아 선을 긋는다(아래 lines). */
+       - 램프 셀 셰이딩: 해가 비추는 정도를 밝음·그늘 두 톤으로 끊어 칠한다.
+       - 외곽선: 부품마다 제 색을 짙게 누른 선을 두른다(아래 인버티드 헐). */
     let TOON = true; try { TOON = localStorage.getItem('flowlab.toon') !== '0'; } catch (e) { /* ignore */ }
     let ramp = null;
     if (TOON) {
-      ramp = new THREE.DataTexture(new Uint8Array([0, 0, 170, 255]), 4, 1, THREE.RedFormat);
-      ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.generateMipmaps = false; ramp.needsUpdate = true;
-      sun.intensity = 0.5; sun.shadow.radius = 1; renderer.shadowMap.type = THREE.PCFShadowMap;
-      /* 그늘은 방향과 상관없이 한 가지 색: 하늘빛(위아래로 번지는 빛) 대신 살짝 푸른 고른 빛을 쓴다 */
-      scene.remove(hemi); scene.add(new THREE.AmbientLight(0xe6e3f2, 0.62));
+      /* 밝음과 그늘 두 톤. 경계만 살짝 풀어서 계단이 지지 않게 한다 */
+      ramp = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0, 0, 0, 0, 40, 215, 255, 255, 255, 255, 255, 255, 255]), 16, 1, THREE.RedFormat);
+      ramp.minFilter = ramp.magFilter = THREE.LinearFilter; ramp.generateMipmaps = false; ramp.needsUpdate = true;
+      sun.intensity = 0.34; sun.shadow.radius = 1.5;
+      /* 그늘은 방향과 상관없이 한 가지 톤: 하늘빛 대신 고른 빛. 드리운 그림자도 같은 톤이 된다 */
+      scene.remove(hemi); scene.add(new THREE.AmbientLight(0xf4f1fb, 0.82));
     }
     /* 그려 넣은 느낌: 상자 면마다 가장자리를 따라 같은 색의 짙은 선을 긋고, 옆면은 위가 밝고 아래가 짙게 번지며,
        윗변 바로 안쪽에 밝은 붓 자국을 한 줄 넣는다. 선 굵기는 화면 픽셀 기준이라 멀어도 같고, 너무 작은 면에는 그리지 않는다. */
@@ -54,14 +55,73 @@
           vec2 fw = max(fwidth(vPaintUv), vec2(1e-6)), dp = min(vPaintUv, 1. - vPaintUv) / fw;
           float dpx = min(dp.x, dp.y), facePx = min(1. / fw.x, 1. / fw.y), side = step(.5, vPaintSY.x);
           float vis = smoothstep(7., 15., facePx) * max(side, step(.07, vPaintSY.y));       // 땅바닥과 아주 작은 면은 건너뛴다
-          float line = (1. - smoothstep(paintW * .55, paintW * 1.25, dpx)) * vis;
+          float line = (1. - smoothstep(paintW * .4, paintW * .95, dpx)) * vis;
           float topd = (1. - vPaintUv.y) / fw.y;
           float hl = smoothstep(paintW * 2., paintW * 2.5, topd) * (1. - smoothstep(paintW * 3.6, paintW * 4.1, topd)) * step(paintW * 4.5, dp.x) * side * smoothstep(14., 26., facePx);
           diffuseColor.rgb *= mix(1., mix(.84, 1.05, vPaintUv.y), side * smoothstep(7., 15., facePx));
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.52, .47, .64), line * .85);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * diffuseColor.rgb * .8, line * .55);   // 제 색을 짙게 누른 선
           diffuseColor.rgb = mix(diffuseColor.rgb, min(vec3(1.), diffuseColor.rgb * 1.25 + .06), hl * .7);
-        }`);
+        }`).replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        #if defined(PAINT_GLOSS) && NUM_DIR_LIGHTS > 0
+        {                                                             // 차체·유리처럼 반들거리는 부품에만: 빛 쪽 어깨에 또렷한 밝은 획
+          vec3 pH = normalize(directionalLights[0].direction + vec3(0., 0., 1.));
+          float sp = smoothstep(.972, .98, dot(normal, pH));
+          diffuseColor.rgb = mix(diffuseColor.rgb, min(vec3(1.), diffuseColor.rgb * 1.2 + .22), sp);
+        }
+        #endif`);
     };
+    /* ---------- 외곽선: 인버티드 헐 ----------
+       부품마다 한 벌 더 그리되 뒷면만, 화면에서 일정한 굵기만큼 부풀려서 그 부품 색을 짙게 누른 색으로 칠한다.
+       그래서 선 색이 부품마다 다르다(초록 나무는 짙은 초록, 벽돌 지붕은 짙은 벽돌색).
+       각진 모델은 면 노멀로 부풀리면 모서리가 벌어지므로, 같은 자리에 모인 면 노멀을 평균 낸 '외곽선 노멀'을 따로 쓴다. */
+    const hullU = { value: new THREE.Vector3(1280, 720, 1.4) }, bufSize = new THREE.Vector2(), hsl = { h: 0, s: 0, l: 0 };
+    const hullShader = sh => {
+      sh.uniforms.hullU = hullU;
+      sh.vertexShader = 'attribute vec3 onormal; uniform vec3 hullU;\n' + sh.vertexShader.replace('#include <project_vertex>', `
+        vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.);
+        gl_Position = projectionMatrix * mvPosition;
+        { mat3 hm = mat3(modelViewMatrix); hm[0] = normalize(hm[0]); hm[1] = normalize(hm[1]); hm[2] = normalize(hm[2]);
+          vec2 hd = (projectionMatrix * vec4(hm * onormal, 0.)).xy * hullU.xy; float hl = length(hd);
+          float hw = hullU.z * clamp(21. / gl_Position.w, .5, 2.2);                 // 가까이 볼수록 굵게, 멀면 가늘게
+          if (hl > 1e-5) gl_Position.xy += hd / hl / hullU.xy * 2. * hw * gl_Position.w; }`);
+    };
+    const inkOf = (c, out) => {                                                    // 부품 색 → 선 색: 더 짙고 더 진하게, 살짝 푸른 쪽으로
+      c.getHSL(hsl); const gray = hsl.s < .06, h = gray ? .7 : hsl.h + (((.68 - hsl.h + 1.5) % 1) - .5) * .1;
+      out.setHSL((h + 1) % 1, gray ? .14 : Math.min(1, hsl.s * 1.1 + .1), Math.max(.05, hsl.l * .4));
+    };
+    const hullMat = mat => {
+      let h = mat.userData.hull;
+      if (!h) { h = mat.userData.hull = new THREE.MeshBasicMaterial({ side: THREE.BackSide }); h.onBeforeCompile = hullShader; inkOf(mat.color, h.color); }
+      return h;
+    };
+    /* 외곽선을 두를 만한 덩어리인가: 너무 작거나 가느다란 것(창틀, 난간, 풀 포기, 사람)은 선에 묻히므로 건너뛴다 */
+    const hullable = (geo, mat, sx, sy, sz) => {
+      if (!TOON || geo === G.plane || mat.transparent || !mat.isMeshToonMaterial || mat.userData.flatGround) return false;
+      const d = [Math.abs(sx), Math.abs(sy), Math.abs(sz)].sort((a, b) => b - a);
+      return d[0] >= .05 && d[1] >= .028;
+    };
+    /* 도형의 외곽선 노멀(색인 꼭짓점마다): 같은 위치에 모인 서로 다른 면 노멀의 평균 */
+    function outlineNormals(geo) {
+      if (geo.attributes.onormal) return geo.attributes.onormal;
+      const P = geo.attributes.position, idx = geo.index, n = idx ? idx.count : P.count, at = k => idx ? idx.getX(k) : k;
+      const acc = new Map(), key = i => Math.round(P.getX(i) * 1e4) + '_' + Math.round(P.getY(i) * 1e4) + '_' + Math.round(P.getZ(i) * 1e4);
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+      for (let t = 0; t < n; t += 3) {
+        const i0 = at(t), i1 = at(t + 1), i2 = at(t + 2);
+        a.fromBufferAttribute(P, i0); b.fromBufferAttribute(P, i1).sub(a); c.fromBufferAttribute(P, i2).sub(a); b.cross(c); if (b.lengthSq() < 1e-14) continue; b.normalize();
+        const tag = Math.round(b.x * 20) + ',' + Math.round(b.y * 20) + ',' + Math.round(b.z * 20);
+        for (const i of [i0, i1, i2]) { const k = key(i); let e = acc.get(k); if (!e) acc.set(k, e = { v: new THREE.Vector3(), seen: new Set() }); if (!e.seen.has(tag)) { e.seen.add(tag); e.v.add(b); } }
+      }
+      const out = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { const e = acc.get(key(i)); if (e) { a.copy(e.v).normalize(); out[i * 3] = a.x; out[i * 3 + 1] = a.y; out[i * 3 + 2] = a.z; } else out[i * 3 + 1] = 1; }
+      const attr = new THREE.BufferAttribute(out, 3); geo.setAttribute('onormal', attr); return attr;
+    }
+    const onorCache = new Map();
+    function flatOnor(geo) {
+      let u = onorCache.get(geo);
+      if (!u) { const A = outlineNormals(geo), idx = geo.index, n = idx ? idx.count : A.count; u = new Float32Array(n * 3); for (let k = 0; k < n; k++) { const i = idx ? idx.getX(k) : k; u[k * 3] = A.getX(i); u[k * 3 + 1] = A.getY(i); u[k * 3 + 2] = A.getZ(i); } onorCache.set(geo, u); }
+      return u;
+    }
     const M = (color, opt) => {
       if (!TOON) return new THREE.MeshLambertMaterial(Object.assign({ color, flatShading: true }, opt || {}));
       const m = new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: ramp }, opt || {})); m.onBeforeCompile = paint; return m;   // 노멀을 직접 주므로 각진 면은 각지게, 곡면은 매끈하게 칠해진다
@@ -86,6 +146,8 @@
       deck: M(0x4b4f5e), orange: M(0xff8a2a), yellow: M(0xffd23f), concrete: M(0xc9c4b6), wall: M(0xe8dfcf), roofR: M(0xb5604c), roofB: M(0x55718f),
       metal: M(0x9aa3b5), red: M(0xc8433c), skin: M(0xe8c4a2), skin2: M(0xa8795a)
     };
+    /* 바닥에 깔리거나 자잘한 재질: 외곽선을 두르지 않는다 */
+    for (const k of ['soil', 'soil2', 'grassA', 'grassB', 'garden', 'verge', 'pave', 'meadow', 'fieldBg', 'dirt', 'parkBg', 'rockBg', 'siteBg', 'gravel', 'asph', 'line', 'water', 'pond', 'bed', 'crop', 'crop2', 'wheat', 'fl1', 'fl2', 'fl3', 'hill', 'hill2', 'hill3']) if (mats[k]) mats[k].userData.flatGround = true;
     const LEAF = [mats.leaf, mats.leaf2, mats.leaf3, mats.leaf4, mats.leaf, mats.leaf2, mats.leaf3, mats.autumn];
     /* 건물 색: 격자 안(항상 컬러)과 격자 밖(설계 중엔 흑백) 두 벌 */
     const palette = K => ({
@@ -135,12 +197,17 @@
       const self = {
         add(geo, mat, x, y, z, sx, sy, sz, ry, rx, rz, shadow) {
           const src = flatPos(geo), key = mat.uuid + (shadow === false ? 'n' : 's');
-          let b = map.get(key); if (!b) map.set(key, b = { mat, shadow: shadow !== false, arr: [], uv: [], nor: [] });
+          let b = map.get(key); if (!b) map.set(key, b = { mat, shadow: shadow !== false, arr: [], uv: [], nor: [], harr: [], hnor: [] });
           { const fu = geo === G.box ? flatUv(geo) : null, uv = b.uv; for (let i = 0, k = 0; i < src.length; i += 3, k += 2) uv.push(fu ? fu[k] : .5, fu ? fu[k + 1] : .5); }
           e.set(rx || 0, ry || 0, rz || 0); q.setFromEuler(e); m4.compose(p.set(x, y, z), q, s.set(sx, sy, sz));
           const arr = b.arr;
           const at = arr.length;
           for (let i = 0; i < src.length; i += 3) { v.set(src[i], src[i + 1], src[i + 2]).applyMatrix4(m4); arr.push(v.x, v.y, v.z); }
+          if (hullable(geo, mat, sx, sy, sz) && y + Math.abs(sy) / 2 > .05) {   // 땅에 붙은 얇은 판은 건너뛴다
+            const on = flatOnor(geo), ha = b.harr, hn = b.hnor;
+            for (let i = at; i < arr.length; i++) ha.push(arr[i]);
+            for (let i = 0; i < on.length; i += 3) { v.set(on[i], on[i + 1], on[i + 2]).applyQuaternion(q); hn.push(v.x, v.y, v.z); }
+          }
           const nor = b.nor;
           if (geo.userData.smooth) {                                // 곡면: 원래 노멀을 돌리고 늘인 만큼 되돌려 쓴다
             const sn = flatNor(geo);
@@ -162,6 +229,7 @@
           for (const b of map.values()) {
             const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(b.arr, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2)); g.setAttribute('normal', new THREE.Float32BufferAttribute(b.nor, 3));
             const m = new THREE.Mesh(g, b.mat); m.castShadow = b.shadow; m.receiveShadow = true; parent.add(m);
+            if (b.harr.length) { const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(b.harr, 3)); hg.setAttribute('onormal', new THREE.Float32BufferAttribute(b.hnor, 3)); parent.add(new THREE.Mesh(hg, hullMat(b.mat))); }
           }
           map.clear();
         }
@@ -202,6 +270,7 @@
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, y, z); m.scale.set(sx, sy, sz);
       if (shadow !== false) { m.castShadow = true; m.receiveShadow = true; }
+      if (hullable(geo, mat, sx, sy, sz)) { outlineNormals(geo); m.add(new THREE.Mesh(geo, hullMat(mat))); }
       (parent || world).add(m); return m;
     }
     const hash = n => { let x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -252,6 +321,12 @@
     }
     function parked(b, P, x, z, ry, k) {
       const bm = P.car[Math.floor(hash(k) * P.car.length)];
+      if (TOON) {                                              // 세워 둔 차도 같은 장난감 차: 묶음 도형으로 넣는다
+        const c = Math.cos(ry || 0), sn = Math.sin(ry || 0), S = .92;
+        toyParts('normal', .24, 0, bm, (geo, mat, px, py, pz, sx, sy, sz, wheel, shadow) =>
+          b.add(geo, mat, x + (px * c + pz * sn) * S, py * S, z + (-px * sn + pz * c) * S, sx * S, sy * S, sz * S, wheel ? 0 : ry, wheel ? Math.PI / 2 : 0, wheel ? -(ry || 0) : 0, shadow));
+        return;
+      }
       b.add(G.box, bm, x, .05, z, .2, .05, .1, ry); b.add(G.box, mats.glass, x, .09, z, .1, .04, .09, ry, 0, 0, false); b.add(G.box, mats.dark, x, .018, z, .16, .02, .104, ry, 0, 0, false);
     }
     /* 집 한 채. 문은 +z(남쪽)를 보고, 용마루는 가로로 놓인다 */
@@ -412,7 +487,7 @@
     }
     /* 사람 / 강아지: +x 를 보고 선다 */
     function person(seed, parent) {
-      const g = new THREE.Group(); g.userData.noLine = true;   // 사람은 너무 작아서 윤곽선을 두르면 뭉개진다
+      const g = new THREE.Group();
       const coat = COAT[Math.floor(hash(seed * 1.3) * COAT.length)], legM = hash(seed * 2.9) < .5 ? mats.dark : mats.pole;
       const legs = [];
       for (const s of [-1, 1]) { const hip = new THREE.Group(); hip.position.set(0, .05, s * .011); g.add(hip); mesh(G.box, legM, 0, -.025, 0, .016, .05, .016, hip); legs.push(hip); }
@@ -950,32 +1025,58 @@
 
     /* 만화풍 차: 통통한 장난감 비례. 둥근 몸통, 큰 바퀴와 휠캡, 동그란 전조등, 보랏빛 범퍼 */
     const toy = { tyre: M(0x4b3d48), hub: M(0xe3c9b6), lamp: new THREE.MeshBasicMaterial({ color: 0xf6ec9c }), tail: M(0xe8603c), bump: M(0x8f86ad), glass: M(0x2f4a66), shine: M(0x86b4cf), roofW: M(0xf3f1ea), leaf: M(0x7bd651), dark: M(0x3b3440) };
-    function toyCar(c, g, bm, parent) {
-      const L = c.len, bus = c.type === 'bus', fast = c.type === 'speeder', wd = bus ? .15 : .132, hb = bus ? .1 : .07, yb = .035 + hb / 2;
-      mesh(G.rbox, bm, 0, yb, 0, L * 1.04, hb, wd, g);                                           // 몸통
-      const cl = bus ? L * .92 : L * .56, ch = bus ? .075 : fast ? .05 : .066, cx = bus ? 0 : -.022, yc = .035 + hb + ch / 2 - .02;
-      mesh(G.rbox, bm, cx, yc, 0, cl, ch, wd * .9, g);                                             // 지붕과 기둥
-      mesh(G.rbox, toy.glass, cx, yc - .004, 0, cl * .84, ch * .7, wd * .93, g, false);            // 옆 유리
-      mesh(G.rbox, toy.glass, cx, yc - .004, 0, cl * 1.03, ch * .7, wd * .7, g, false);            // 앞뒤 유리
-      mesh(G.box, toy.shine, cx + cl * .51, yc + .004, wd * .14, .004, ch * .34, wd * .16, g, false).rotation.x = .5;   // 앞 유리에 비친 빛
-      if (bus) mesh(G.rbox, toy.roofW, 0, yc + ch * .44, 0, cl * .9, .022, wd * .8, g, false);
-      if (fast) mesh(G.rbox, toy.dark, -L * .47, .035 + hb + .012, 0, .03, .014, wd * 1.02, g);    // 스포일러
-      if (c.type === 'novice') mesh(G.rbox, toy.leaf, cx, yc + ch * .5 + .006, 0, .055, .022, .055, g, false);   // 초보 딱지
-      for (const sz of [-1, 1]) {
-        mesh(G.ball, toy.lamp, L * .5, yb + .008, sz * wd * .3, .012, .021, .021, g, false);        // 전조등
-        mesh(G.rbox, toy.tail, -L * .51, yb + .008, sz * wd * .32, .014, .022, .028, g, false);     // 후미등
+    toy.glass.defines = { PAINT_GLOSS: '' };
+    /* 차 한 대의 부품을 차례로 내놓는다. put(도형, 재질, x, y, z, sx, sy, sz, 바퀴인가, 그림자) — 달리는 차는 낱개 메시로, 세워 둔 차는 묶음으로 받는다 */
+    function toyParts(type, L, id, bm, put) {
+      const bus = type === 'bus', fast = type === 'speeder';
+      if (type === 'tractor') {
+        put(G.rbox, bm, .075, .09, 0, .15, .075, .085);                                           // 엔진과 몸통
+        put(G.rbox, toy.dark, .155, .09, 0, .02, .05, .06, 0, false); put(G.cylS, toy.dark, .11, .16, .025, .009, .07, .009, 0, false);   // 그릴, 배기통
+        put(G.rbox, COAT[id % COAT.length], .0, .15, 0, .05, .07, .06, 0, false); put(G.ball, mats.skin, .0, .2, 0, .024, .024, .024, 0, false);   // 운전하는 사람
+        put(G.rbox, mats.hay, .0, .228, 0, .062, .016, .062, 0, false);                             // 밀짚모자
+        put(G.rbox, mats.wood, -.115, .075, 0, .15, .05, .125); put(G.rbox, mats.hay, -.115, .12, 0, .125, .055, .105);   // 짐칸과 건초
+        for (const sz of [-1, 1]) {
+          put(G.cylS, toy.tyre, .02, .055, sz * .062, .055, .032, .055, 1); put(G.cylS, toy.hub, .02, .055, sz * .08, .026, .004, .026, 1, false);
+          put(G.cylS, toy.tyre, .125, .036, sz * .055, .036, .026, .036, 1); put(G.cylS, toy.tyre, -.125, .034, sz * .07, .034, .024, .034, 1);
+        }
+        return;
       }
-      for (const sx of [-1, 1]) mesh(G.rbox, toy.bump, sx * L * .52, .042, 0, .03, .026, wd * .94, g);   // 범퍼
+      if (type === 'moto') {
+        put(G.rbox, bm, 0, .062, 0, .12, .045, .04); put(G.rbox, [toy.tail, toy.shine, toy.leaf][id % 3], -.012, .112, 0, .055, .07, .058);   // 차체, 탄 사람
+        put(G.ball, toy.roofW, -.002, .168, 0, .03, .03, .03, 0, false); put(G.ball, toy.lamp, .066, .078, 0, .01, .016, .016, 0, false);   // 헬멧, 전조등
+        put(G.rbox, toy.dark, .045, .1, 0, .014, .014, .08, 0, false);                               // 핸들
+        for (const sx of [-.062, .062]) put(G.cylS, toy.tyre, sx, .034, 0, .034, .02, .034, 1);
+        return;
+      }
+      const wd = bus ? .15 : .132, hb = bus ? .1 : .07, yb = .035 + hb / 2;
+      put(G.rbox, bm, 0, yb, 0, L * 1.04, hb, wd);                                                // 몸통
+      const cl = bus ? L * .92 : L * .56, ch = bus ? .075 : fast ? .05 : .066, cx = bus ? 0 : -.022, yc = .035 + hb + ch / 2 - .02;
+      put(G.rbox, bm, cx, yc, 0, cl, ch, wd * .9);                                                  // 지붕과 기둥
+      put(G.rbox, toy.glass, cx, yc - .004, 0, cl * .84, ch * .7, wd * .93, 0, false);             // 옆 유리
+      put(G.rbox, toy.glass, cx, yc - .004, 0, cl * 1.03, ch * .7, wd * .7, 0, false);             // 앞뒤 유리
+      if (bus) put(G.rbox, toy.roofW, 0, yc + ch * .44, 0, cl * .9, .022, wd * .8, 0, false);
+      if (fast) put(G.rbox, toy.dark, -L * .47, .035 + hb + .012, 0, .03, .014, wd * 1.02);        // 스포일러
+      if (type === 'novice') put(G.rbox, toy.leaf, cx, yc + ch * .5 + .006, 0, .055, .022, .055, 0, false);   // 초보 딱지
+      for (const sz of [-1, 1]) {
+        put(G.ball, toy.lamp, L * .5, yb + .008, sz * wd * .3, .012, .021, .021, 0, false);         // 전조등
+        put(G.rbox, toy.tail, -L * .51, yb + .008, sz * wd * .32, .014, .022, .028, 0, false);      // 후미등
+      }
+      for (const sx of [-1, 1]) put(G.rbox, toy.bump, sx * L * .52, .042, 0, .03, .026, wd * .94); // 범퍼
       const wr = bus ? .04 : .042;
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-        mesh(G.cylS, toy.tyre, sx * L * .31, wr, sz * (wd / 2 - .006), wr, .03, wr, g).rotation.x = Math.PI / 2;
-        mesh(G.cylS, toy.hub, sx * L * .31, wr, sz * (wd / 2 + .0095), wr * .5, .004, wr * .5, g, false).rotation.x = Math.PI / 2;
+        put(G.cylS, toy.tyre, sx * L * .31, wr, sz * (wd / 2 - .006), wr, .03, wr, 1);
+        put(G.cylS, toy.hub, sx * L * .31, wr, sz * (wd / 2 + .0095), wr * .5, .004, wr * .5, 1, false);
       }
+    }
+    function toyCar(c, g, bm, parent) {
+      bm.defines = { PAINT_GLOSS: '' };
+      toyParts(c.type, c.len, c.id, bm, (geo, mat, x, y, z, sx, sy, sz, wheel, shadow) => { const m = mesh(geo, mat, x, y, z, sx, sy, sz, g, shadow); if (wheel) m.rotation.x = Math.PI / 2; });
       g.userData.body = bm; (parent || world).add(g); return g;
     }
     function carMesh(c, parent) {
       const g = new THREE.Group(), col = c.type === 'normal' ? NORMAL_VARIANTS[c.id % NORMAL_VARIANTS.length] : CARCOL[c.type], bm = M(col), L = c.len;
       g.scale.setScalar(1.18);
+      if (TOON) return toyCar(c, g, bm, parent);
       if (c.type === 'tractor') {                                // 경운기: 빨간 몸통 + 짐칸
         mesh(G.box, bm, .07, .075, 0, .13, .07, .09, g); mesh(G.box, mats.dark, .15, .09, 0, .04, .04, .07, g); mesh(G.box, mats.pole, .1, .14, .03, .012, .08, .012, g, false);
         mesh(G.box, mats.wood, -.08, .07, 0, .15, .05, .12, g); mesh(G.box, mats.hay, -.08, .11, 0, .12, .04, .1, g);
@@ -989,7 +1090,6 @@
         for (const sx of [-.06, .06]) mesh(G.cyl10, mats.dark, sx, .03, 0, .03, .014, .03, g).rotation.x = Math.PI / 2;
         g.userData.body = bm; (parent || world).add(g); return g;
       }
-      if (TOON) return toyCar(c, g, bm, parent);
       if (c.type === 'bus') {
         mesh(G.box, bm, 0, .1, 0, L, .13, .15, g); mesh(G.box, mats.glass, 0, .125, 0, L * .9, .045, .155, g); mesh(G.box, mats.white, 0, .17, 0, L * .96, .02, .14, g);
       } else {
@@ -1017,7 +1117,7 @@
       const dt = Math.min(.1, Math.max(0, (now - lastNow) / 1000)); lastNow = now;
       const k = 1 - Math.exp(-dt * 4.5);
       cam.yaw += (tgt.yaw - cam.yaw) * k; cam.pitch += (tgt.pitch - cam.pitch) * k; cam.dist += (tgt.dist - cam.dist) * k; cam.tx += (tgt.tx - cam.tx) * k; cam.tz += (tgt.tz - cam.tz) * k;
-      if (Math.abs(tAmt - amt) > .002) { amt += (tAmt - amt) * Math.min(1, dt * 3.2); for (const d of decor) d.m.color.copy(cA.copy(d.g).lerp(d.c, amt)); }
+      if (Math.abs(tAmt - amt) > .002) { amt += (tAmt - amt) * Math.min(1, dt * 3.2); for (const d of decor) { d.m.color.copy(cA.copy(d.g).lerp(d.c, amt)); if (d.m.userData.hull) inkOf(d.m.color, d.m.userData.hull.color); } }
       const yaw = cam.yaw + ((cam.touched || cam.mode === 'top') ? 0 : Math.sin(now * 0.00012) * 0.07 * amt);
       const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
       camera.position.set(cam.tx + Math.sin(yaw) * cp * cam.dist, sp * cam.dist, cam.tz + Math.cos(yaw) * cp * cam.dist);
@@ -1070,7 +1170,7 @@
           m.position.set(c.x, h, c.y);
           m.rotation.set(c.crashed ? .25 : 0, -c.ang + (c.crashed ? (c.id % 2 ? .6 : -.5) : 0), a === b ? 0 : Math.atan((b - a) * 1.5 * (1 - Math.abs(2 * c.s - 1))));
           m.visible = h > -.3;
-          if (c.crashed && !m.userData.dead) { m.userData.dead = true; m.userData.body.color.multiplyScalar(.45); }
+          if (c.crashed && !m.userData.dead) { m.userData.dead = true; m.userData.body.color.multiplyScalar(.45); if (m.userData.body.userData.hull) inkOf(m.userData.body.color, m.userData.body.userData.hull.color); }
         }
         for (const [id, m] of cars) if (!seen.has(id)) { world.remove(m); cars.delete(id); }
         // 혼잡도 히트맵 · 사고 차단 타일
@@ -1101,60 +1201,9 @@
       if (hoverMesh) { hoverMesh.visible = !!hover; if (hover) { hoverMesh.position.set(hover.x + .5, .03, hover.y + .5); hoverMesh.material.color.setHex(hover.ok ? 0x3ef0ff : 0xff4d6d); } }
       camSweeps.forEach((sw, k) => { sw.rotation.z = t * 1.4 + k; });
       applyCam(now);
-      if (lines) scene.traverse(o => { if (o.isSprite && o.layers.mask !== 2) o.layers.set(1); });   // 간판은 선을 그은 뒤에 따로 그린다
       renderer.render(scene, camera);
-      if (lines) lines.draw();
     }
 
-    /* ---------- 외곽선 ----------
-       화면을 한 번 더 깊이만 그려 두고, 그 깊이에서 선을 찾는다. 평면 위에서는 1/z 가 화면 좌표에 대해 직선으로 변하므로,
-       이웃 픽셀과의 2차 차분(라플라시안)이 0 이 아닌 곳이 곧 면이 꺾인 모서리이거나 앞뒤가 끊긴 실루엣이다.
-       거리와 화면 높이로 나눠 재서 멀리 있어도 기준이 같다. 반투명한 것(도로 무늬, 표시, 말풍선)은 깊이에 넣지 않는다. */
-    const lines = TOON ? (() => {
-      let rt = null; const hidden = [], size = new THREE.Vector2();
-      const depthMat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
-      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
-        transparent: true, depthTest: false, depthWrite: false, blending: THREE.MultiplyBlending,
-        uniforms: { tDepth: { value: null }, px: { value: new THREE.Vector2() }, nf: { value: new THREE.Vector2(camera.near, camera.far) }, vh: { value: 1 }, fog: { value: new THREE.Vector2(30, 74) }, ink: { value: new THREE.Color(0.2, 0.18, 0.3) }, str: { value: 1 } },
-        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
-        fragmentShader: `
-          uniform sampler2D tDepth; uniform vec2 px, nf, fog; uniform float vh, str; uniform vec3 ink; varying vec2 vUv;
-          float W(vec2 o){ float d = texture2D(tDepth, vUv + o * px).x; return ((nf.y + nf.x) - (2. * d - 1.) * (nf.y - nf.x)) / (2. * nf.x * nf.y); }   // 1/z
-          void main(){
-            float c = W(vec2(0.)), l = W(vec2(-1., 0.)), r = W(vec2(1., 0.)), u = W(vec2(0., 1.)), d = W(vec2(0., -1.));
-            float lu = W(vec2(-.7, .7)), rd = W(vec2(.7, -.7)), ru = W(vec2(.7, .7)), ld = W(vec2(-.7, -.7));
-            float z = 1. / max(max(max(l, r), max(u, d)), c);
-            float e = max(max(abs(l + r - 2. * c), abs(u + d - 2. * c)), max(abs(lu + rd - 2. * c), abs(ru + ld - 2. * c))) * z * vh;
-            /* 낮은 턱이나 완만한 모서리는 넘기고, 건물·나무·차처럼 앞뒤가 뚜렷이 끊기는 윤곽에만 굵게 긋는다 */
-            float a = smoothstep(2.2, 3.4, e) * (1. - smoothstep(fog.x * .9, fog.y * .85, z)) * str;
-            if (a < .02) discard;
-            gl_FragColor = vec4(mix(vec3(1.), ink, a), 1.);
-          }` }));
-      quad.frustumCulled = false;
-      const ps = new THREE.Scene(), pc = new THREE.Camera(); ps.add(quad);
-      return {
-        resize() {
-          renderer.getDrawingBufferSize(size); if (rt) { rt.depthTexture.dispose(); rt.dispose(); }
-          rt = new THREE.WebGLRenderTarget(size.x, size.y, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false });
-          rt.depthTexture = new THREE.DepthTexture(size.x, size.y); rt.depthTexture.type = THREE.UnsignedIntType;
-          const u = quad.material.uniforms, t = Math.max(1, size.y / 620);          // 선 굵기: 화면 높이에 비례
-          paintU.value = Math.max(1, size.y / 760); u.tDepth.value = rt.depthTexture; u.px.value.set(t / size.x, t / size.y); u.vh.value = size.y / t;
-        },
-        draw() {
-          if (!rt) return;
-          hidden.length = 0;
-          scene.traverseVisible(o => { if (o.userData.noLine || (o.material && (o.material.transparent || o.material.isMeshBasicMaterial))) { o.visible = false; hidden.push(o); } });
-          const au = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false; scene.overrideMaterial = depthMat;
-          renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null);
-          scene.overrideMaterial = null; renderer.shadowMap.autoUpdate = au; for (const o of hidden) o.visible = true;
-          quad.material.uniforms.nf.value.set(camera.near, camera.far);
-          quad.material.uniforms.str.value = .7 + .3 * amt;                       // 흑백 편집 화면에서는 선을 조금 옅게
-          const ac = renderer.autoClear; renderer.autoClear = false; renderer.render(ps, pc);
-          camera.layers.set(1); renderer.render(scene, camera); camera.layers.set(0);   // 간판·말풍선은 선 위에
-          renderer.autoClear = ac;
-        }
-      };
-    })() : null;
 
     const v3 = new THREE.Vector3(), ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     return {
@@ -1166,7 +1215,7 @@
         amb = []; envWalkers = []; boats = []; envMills = []; critters = [];
       },
       get colorAmt() { return amt; }, get toon() { return TOON; },
-      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (lines) lines.resize(); if (!cam.touched) { const v = viewOf(cam.mode); tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = v.tx; tgt.tz = v.tz; tgt.dist = fitDist(cam.mode); } },
+      resize(w, h, dpr) { vw = w; vh = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); if (TOON) { renderer.getDrawingBufferSize(bufSize); paintU.value = Math.max(1, bufSize.y / 760); hullU.value.set(bufSize.x, bufSize.y, Math.max(1.15, bufSize.y / 560)); } if (!cam.touched) { const v = viewOf(cam.mode); tgt.yaw = v.yaw; tgt.pitch = v.pitch; tgt.tx = v.tx; tgt.tz = v.tz; tgt.dist = fitDist(cam.mode); } },
       project(x, y, h) { v3.set(x, h || 0, y).project(camera); return [(v3.x + 1) / 2 * vw, (1 - v3.y) / 2 * vh]; },
       /* 화면 좌표 → 지면 좌표(타일 단위) */
       pick(px, py) { ndc.set(px / vw * 2 - 1, 1 - py / vh * 2); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, v3) ? [v3.x, v3.z] : null; },
