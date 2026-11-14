@@ -118,7 +118,7 @@
   const V3 = window.FlowView3D ? window.FlowView3D.create(wrap) : null;
   let vw = 1, vh = 1, dpr = 1, TS = 64, ox = 0, oy = 0;
   function resize() {
-    vw = wrap.clientWidth; vh = wrap.clientHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
+    vw = wrap.clientWidth; vh = wrap.clientHeight; dpr = Math.min('ontouchstart' in window ? 1.5 : 2, window.devicePixelRatio || 1);   // 폰은 화소가 촘촘해 1.5배면 충분하고, 그리는 화소 수가 절반 가까이 준다
     cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr); cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
     TS = Math.min(vw / W, (vh - 150) / H); ox = (vw - TS * W) / 2; oy = 62 + (vh - 150 - TS * H) / 2;
     if (V3) V3.resize(vw, vh, dpr);
